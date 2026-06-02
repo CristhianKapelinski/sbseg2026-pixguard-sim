@@ -39,7 +39,7 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 target-version = "py310"
 
 [tool.ruff.lint]

@@ -38,7 +38,7 @@ def main(argv: list[str]) -> int:
 
     # Panel (a): pre-deadline flag fraction vs deadline.
     markers = ["o", "s", "^", "D"]
-    for det, marker in zip(e1["detectors"], markers):
+    for det, marker in zip(e1["detectors"], markers, strict=False):
         pdf = det["pre_deadline_fraction"]
         y = [pdf[str(d)] for d in DEADLINES]
         ax1.plot(DEADLINES, y, marker=marker, label=det["detector"], linewidth=1.3)
