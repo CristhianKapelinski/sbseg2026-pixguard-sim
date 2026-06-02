@@ -1,0 +1,14 @@
+{
+  "generator": {
+    "seed": 20260202,
+    "n_accounts": 4000,
+    "n_legit_events": 40000,
+    "fraud_base_rate": 0.012,
+    "med_max_depth": 5
+  },
+  "harness": {
+    "deadline_ms": 1000,
+    "deadline_sweep_ms": [100, 250, 500, 1000, 2000, 5000, 10000],
+    "score_threshold": 0.5
+  }
+}

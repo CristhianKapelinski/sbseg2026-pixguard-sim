@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pixguard-sim"
+version = "0.1.0"
+description = "A deadline-aware evaluation harness for PIX fraud detectors with multi-hop MED-2.0 and coercion scenarios."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["pix", "fraud-detection", "evaluation-harness", "synthetic-data", "anti-money-laundering"]
+dependencies = [
+    "numpy>=1.26,<2.2",
+    "pandas>=2.1,<2.3",
+    "scikit-learn>=1.4,<1.6",
+    "networkx>=3.2,<3.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9",
+    "ruff>=0.5,<0.16",
+]
+
+[project.scripts]
+pixguard-sim = "pixguard_sim.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = ["E501"]

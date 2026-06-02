@@ -1,0 +1,48 @@
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test / lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Data products and run outputs (regenerable, never tracked)
+results/
+logs/
+data/
+*.csv
+*.parquet
+
+# LaTeX build intermediates (keep paper.pdf locally, do not track build cruft)
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.toc
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.synctex.gz
+
+# Editor / OS noise
+.DS_Store
+.vscode/
+.idea/
+
+# Template backup (not part of the artifact)
+paper/*.sty.bak
+
+# Internal research/planning notes (not part of the public artifact)
+DOSSIER.md
+PLAN.md
+RESEARCH.md
