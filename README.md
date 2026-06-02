@@ -27,7 +27,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 
 The seals considered are: **Available (SeloD)**, **Functional (SeloF)**, **Sustainable (SeloS)**, and **Reproducible (SeloR)**.
 
-- **SeloD — Available.** The artifact is public and open source (MIT), self-contained in this repository (`git clone https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim`), and the main claim runs with no external data. <!-- TODO(double-blind): swap to anonymized mirror -->
+- **SeloD — Available.** The artifact is public and open source (MIT), self-contained in this repository, and the main claim runs with no external data.
 - **SeloF — Functional.** A single command (the [Minimal Test](#minimal-test)) runs the full pipeline — generate, fit detectors, latency-aware scoring, metrics with CIs — and writes a real `results/e1.json` with the headline result.
 - **SeloS — Sustainable.** A `src/` layout with one module per concern (`generator.py`, `harness.py`, `metrics.py`, `detectors/`, `scenarios/`, `adapters.py`, `data_io.py`), frozen-dataclass configs, typed and docstringed code, unit tests (`tests/`), and a lint-clean `ruff` configuration. Every dependency is pinned in [`pyproject.toml`](pyproject.toml) and [`uv.lock`](uv.lock).
 - **SeloR — Reproducible.** Fixed seeds, content-hashed inputs/outputs, byte-stable generation (experiment E4 checks frame-hash equality). The main claim (E1) reproduces exactly; the cross-generator runs reproduce within bootstrap CIs from datasets pinned by checksum in `results/data_manifest.json`.
@@ -70,9 +70,9 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) / [`uv.lock`](uv.l
 ## Installation
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim
-cd sbseg2026-pixguard-sim
+# 1. Clone the repository (anonymous review: download the ZIP from the artifact link in the paper)
+git clone <REPOSITORY-URL> pixguard-sim
+cd pixguard-sim
 
 # 2. Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
