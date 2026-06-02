@@ -5,6 +5,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx,url}
 \usepackage{booktabs}
+\usepackage{tabularx}
 \usepackage{amssymb}
 \usepackage{pifont}
 \usepackage{enumitem}
@@ -12,11 +13,14 @@
 \usepackage[hidelinks]{hyperref}
 
 % Tight layout for the page limit.
-\setlength{\tabcolsep}{4pt}
+\setlength{\tabcolsep}{5pt}
 \renewcommand{\arraystretch}{0.9}
 \renewcommand{\topfraction}{0.95}
 \renewcommand{\bottomfraction}{0.95}
 \renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.95}
+% Ragged free-text column that fills the width.
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
 % Do not stretch vertical glue to fill a page that a float leaves short; this
 % removes underfull \vbox warnings at page boundaries without altering content.
 \raggedbottom
@@ -70,6 +74,7 @@
 \newcommand{\PfbLrPRAUC}{0.844}
 \newcommand{\PfbPubPRAUC}{0.865}   % published XGBoost PR-AUC, HF card
 \newcommand{\PfbXgbF}{0.876}
+\newcommand{\PfbRfF}{0.877}
 \newcommand{\PfbGbF}{0.873}
 \newcommand{\PfbXgbPre}{0.844}
 \newcommand{\PfbGbPre}{0.000}
@@ -90,43 +95,37 @@
 \newcommand{\TransPfbPfbF}{0.612}
 % -- GPU GraphSAGE baseline (E7) --
 \newcommand{\GnnInPRAUC}{0.482}
-\newcommand{\GnnTideHiPRAUC}{0.089}
-\newcommand{\GnnFitS}{3.1}
+\newcommand{\GnnTideHiPRAUC}{0.090}
+\newcommand{\GnnFitS}{3.4}
 
 \sloppy
 
-\title{\sysname: A Deadline-Aware Evaluation Harness for Pix\\ Fraud Detectors with Multi-Hop MED-2.0 and Coercion Scenarios}
+\title{\sysname: A Deadline-Aware Testbed for Pix Fraud Detectors}
 
 \author{Anonymized for double-blind review\inst{1}}
 
-\address{Anonymized Institution\\
-  \email{anonymous@example.org}
-}
+\address{Anonymized Institution}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-Pix, Brazil's instant-payment system, moved 63.8 billion transactions in 2024
-and is now the country's dominant payment method, and its regulation has
-shifted from refunds to real-time blocking ``as soon as fraud is identified''.
-Yet open fraud benchmarks score detectors in batch and ignore that
-pre-transaction decision window. We present \sysname, a detector- and
-generator-agnostic harness that scores any Pix fraud detector by the
-\emph{pre-deadline flag fraction}, the share of frauds flagged within a
-configurable decision deadline, alongside precision, recall, and PR-AUC with
-95\% confidence intervals. The metric is discriminative where batch metrics are
-blind: two detectors with statistically indistinguishable batch F1 are ranked
-oppositely, one flagging \textbf{\rfPre} of frauds within a 1000\,ms deadline
-and the other \textbf{\gbPreThousand}; the same inversion reappears on the
-released pix-fraud-br set (\textbf{\PfbXgbPre} vs \textbf{\PfbGbPre}). Validated
-across three independently-authored generators, the harness yields honest,
-sub-perfect numbers: best PR-AUC \textbf{\PfbXgbPRAUC} on pix-fraud-br but only
-\textbf{\TideHiXgbPRAUC} on the rare-illicit Tide data, and single-hop-trained
-detectors collapse on the multi-hop MED-2.0 and coercion scenarios
-(recall \textbf{\eCoerc} and \textbf{\eMed}). We release the harness,
-scenarios, pinned datasets, and experiment scripts.
+Brazilian regulation now requires Pix, the instant-payment system used by about
+170 million people, to block fraud before money settles, yet open fraud
+benchmarks score detectors only in batch and ignore that pre-transaction
+decision window. \sysname{} is an open testbed that scores any Pix fraud
+detector by the \emph{pre-deadline flag fraction}, the share of frauds flagged
+within a configurable decision deadline, alongside precision, recall, and
+PR-AUC with 95\% confidence intervals. The metric ranks detectors that batch
+metrics rank as equal: two with indistinguishable batch F1 flag
+\textbf{\rfPre} versus \textbf{\gbPreThousand} of frauds within a 1000\,ms
+deadline, an inversion that reappears on the released pix-fraud-br set
+(\textbf{\PfbXgbPre} vs \textbf{\PfbGbPre}). Across three
+independently-authored generators the numbers stay sub-perfect and spread out
+(best PR-AUC \textbf{\PfbXgbPRAUC} on pix-fraud-br, \textbf{\TideHiXgbPRAUC} on
+rare-illicit Tide), and detectors trained on single-hop fraud collapse on
+multi-hop and coercion scenarios (recall \textbf{\eCoerc} and \textbf{\eMed}).
 \end{abstract}
 
 \section{Introduction}
@@ -197,7 +196,7 @@ one catching \rfPre{} of frauds within a 1000\,ms window and the other
 pix-fraud-br set (\PfbXgbPre{} vs \PfbGbPre{}). \sysname{} consumes the output of
 existing generators rather than competing with them; we validate it across
 three independently-authored generators on identical detector inputs, where the
-honest numbers are imperfect and spread out, not a uniform 1.00.
+numbers stay imperfect and spread out, never a uniform 1.00.
 
 \noindent\textbf{Contributions.}
 \begin{itemize}[itemsep=1pt,topsep=2pt,leftmargin=*]
@@ -207,25 +206,25 @@ in-repo layer and on the real pix-fraud-br set that it ranks detectors that
 batch precision and recall cannot (Sections~\ref{sec:method},~\ref{sec:results}).
 \item \textbf{C2.} Reference definitions of two Pix-native scenarios absent
 from open prior work, multi-hop MED-2.0 refund tracing and coercion, mapped onto
-the published taxonomy, with the honest finding that single-hop-trained
+the published taxonomy, with the finding that single-hop-trained
 detectors collapse on them (Sections~\ref{sec:method},~\ref{sec:results}).
 \item \textbf{C3.} A cross-generator, checksum-pinned evaluation on three
 independently-authored generators (in-repo, the released Tide HI/LI sets, and
-the released pix-fraud-br set), reproducing the prior-art baselines within
-tolerance and including a GPU graph-neural-network baseline, released as a
-seed-pinned artifact (Sections~\ref{sec:results},~\ref{sec:concl}).
+the released pix-fraud-br set), reproducing the prior-art baseline within
+tolerance and including a graph-neural-network baseline trained on GPU, released
+as a seed-pinned artifact (Sections~\ref{sec:results},~\ref{sec:concl}).
 \end{itemize}
 
 \section{Related Work}\label{sec:related}
 
-\begin{table}[ht]
+\begin{table}[htbp]
 \centering
 \caption{Capabilities of open fraud-data artifacts versus \sysname. Pix:
 instant-payment semantics; MH: multi-hop tracing; MED: MED-2.0 layers;
 Coer.: coercion scenario; Dline: pre-transaction deadline metric.}
 \label{tab:related}
 \footnotesize
-\begin{tabular}{lcccccc}
+\begin{tabularx}{\textwidth}{Lcccccc}
 \toprule
 Artifact & Pix & MH & MED & Coer. & Dline & Open \\
 \midrule
@@ -236,12 +235,12 @@ pix-fraud-br & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
 FCA/Aizle APP & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark \\
 \textbf{\sysname} & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 Table~\ref{tab:related} positions \sysname against the closest artifacts. The
-IBM ``Transactions for AML'' generator (AMLSim-based) produces rich multi-hop
-laundering topology calibrated to real transaction statistics, a valuable
+IBM ``Transactions for AML'' agent-based generator produces multi-hop
+laundering topology calibrated to real transaction statistics, a useful
 training ground for graph models, but carries no instant-payment semantics, no
 MED tracing, no coercion, and no latency metric~\cite{altman2023aml}. Tide
 contributes structural \emph{and} temporal laundering dynamics, including
@@ -270,187 +269,217 @@ Table~\ref{tab:related}.
 \section{Design and Method}\label{sec:method}
 
 \noindent\textbf{Event schema.} Every generator maps into one normalized
-Pix-native event record carrying a relative timeline (initiation and
-irrevocable settlement), a MED-layer index, and Pix-native signals: DICT key,
-device change, new payee, payer velocity, remote-access session, and a coercion
-flag. Detectors see only the numeric feature columns and the timeline; the
-label, scenario, and identifiers are never exposed. Determinism is built in: a
-fixed master seed reproduces the in-repo stream byte-for-byte, content-hashed in
-the run log.
+Pix-native event record. Each record carries a relative timeline (the moment the
+transfer is initiated and the moment settlement becomes irrevocable), a MED-layer
+index for refund chains, and Pix-native signals: the DICT key in use, a device
+change, a new payee, recent payer velocity, a remote-access session, and a
+coercion indicator. A detector sees only the numeric feature columns and the
+timeline; the label, the scenario name, and account identifiers are never
+exposed to it. A fixed seed reproduces the in-repo stream exactly, so any run
+yields the same events.
 
 \noindent\textbf{Three independent generators.} The harness scores detectors on
-three independently-authored sources through thin, checksum-verified adapters,
-so a number is never read off data the harness itself produced. (i)~An in-repo
-synthetic generator builds a scale-free base interaction graph
-(Barab\'asi--Albert under a fixed seed) and emits the four Pix-native scenarios;
-it is the only source that carries coercion and multi-hop MED-2.0, so it is the
-scenario source, not the credibility anchor. (ii)~The released Tide HI/LI AML
-datasets~\cite{vandenbeukel2026tide} (pinned by the provider's MD5 on Zenodo)
-supply real multi-hop laundering at extreme rarity (\TideHiRate{} and
+three independently-authored sources through thin adapters, so a reported number
+is never read off data the harness itself produced. (i)~An in-repo synthetic
+generator builds a scale-free base interaction graph (a Barab\'asi--Albert graph
+under a fixed seed) and emits the four Pix-native scenarios; it is the only
+source that carries coercion and multi-hop MED-2.0, so it supplies the scenarios
+rather than the external credibility. (ii)~The released Tide HI/LI AML
+datasets~\cite{vandenbeukel2026tide}, pinned by the provider's checksum on
+Zenodo, supply multi-hop laundering at extreme rarity (\TideHiRate{} and
 \TideLiRate{} illicit). (iii)~The released pix-fraud-br set of 2{,}000{,}000
 Pix-framed transactions supplies a Pix-native, single-hop generator whose
-prior-art baselines we reproduce. A \texttt{data\_manifest.json} pins each file
-by SHA-256, the provider MD5, and its source URL. All data is synthetic and
-ground-truth labeled; no number is a real-world fraud rate.
+prior-art baseline we reproduce. Each input file is pinned by content checksum
+and source URL. All data is synthetic and ground-truth labeled; no number here is
+a real-world fraud rate.
 
 \noindent\textbf{Scenarios.} \sysname{} instantiates four scenarios mapped onto
 the taxonomy's four groups~\cite{pizzolato2025taxonomy}: \emph{account-takeover}
-(remote-access ``ghost hand''), \emph{coercion} (physical-interaction group:
-robbery, express kidnapping, extortion), \emph{fake-MED refund} (refund/urgency
-group, extended to multi-hop MED-2.0 tracing of up to five layers), and
-\emph{mule-chain} dispersal. Coercion is deliberately hard: it uses the
-victim's own device and a genuine session, so it shows no device change and no
-remote flag, only a coercion indicator, an unusual amount, and a new payee.
-Multi-hop MED chains emit one event per refund layer with decaying signal
-strength and inter-hop delays, enabling a recall-by-MED-layer breakdown.
+(remote-access ``ghost hand''), \emph{coercion} (the physical-interaction group:
+robbery, express kidnapping, extortion), \emph{fake-MED refund} (the
+refund/urgency group, extended to multi-hop MED-2.0 tracing of up to five
+layers), and \emph{mule-chain} dispersal. Coercion is deliberately hard to
+detect: the victim uses their own device in a genuine session, so the event
+shows no device change and no remote flag, only a coercion indicator, an unusual
+amount, and a new payee. A multi-hop MED chain emits one event per refund layer
+with decaying signal strength and inter-hop delays, which lets the harness break
+recall down by MED layer.
 
-\noindent\textbf{The deadline metric.} A detector implements \texttt{fit} and
-\texttt{score} and reports its decision latency relative to each event's
-initiation. The harness fits each detector on a deterministic stratified split
+\noindent\textbf{The deadline metric.} Each detector returns a fraud score and
+the decision latency it would incur, measured from the moment the transfer is
+initiated. The harness trains each detector on a deterministic stratified split
 and reports batch precision, recall, F1, and PR-AUC, plus the
-\emph{pre-deadline flag fraction}: among true-fraud events, the fraction the
-detector both flags (score at or above the threshold) and decides within the
-deadline window measured from the event's own initiation. A fraud flagged only
-after the deadline is not actionable for pre-transaction blocking and does not
-count. The metric is reported over a sweep of deadlines because the regulation
-fixes none. Every proportion (recall, pre-deadline fraction, per-scenario and
-per-layer recall) carries a Wilson 95\% confidence interval; F1 and PR-AUC carry
-a seed-pinned bootstrap 95\% interval over 1{,}000 resamples.
+\emph{pre-deadline flag fraction}: among true-fraud events, the share the
+detector both flags (score at or above its threshold) and decides on within the
+deadline window. The deadline window is the time the institution has to block a
+transfer before settlement becomes irrevocable. A fraud flagged only after that
+window is not actionable for pre-transaction blocking and does not count. The
+metric is swept over a range of deadlines because the regulation fixes none.
+Every proportion (recall, pre-deadline fraction, per-scenario and per-layer
+recall) carries a Wilson 95\% confidence interval; F1 and PR-AUC carry a
+seed-pinned bootstrap 95\% interval over 1{,}000 resamples.
 
 \section{Evaluation}\label{sec:results}
 
-All results come from code run with a fixed seed (20260202); no number is
-reported that the harness did not compute, and the released scripts regenerate
-each one. The in-repo stream has \Nevents{} events with \Nfraud{} frauds
-(\Frate), split into a \Neval-event evaluation set with \Nevalfraud{} frauds.
-The Tide and pix-fraud-br runs use a label-stratified, seed-pinned subsample of
-\PfbN{} transactions each. Confidence intervals are reported as
-\emph{value}~[lo,~hi].
+We run seven experiments, E1 to E7, summarized in Table~\ref{tab:exp}. E1
+measures the deadline metric on the in-repo layer; E2 tests detectors trained
+only on single-hop fraud against the unseen scenarios; E3 and E5 evaluate the
+released Tide and pix-fraud-br generators; E4 checks that the in-repo stream is
+reproducible; E6 trains on one generator and tests on another; E7 adds a graph
+baseline. The detectors are five fixed configurations used throughout: a rule
+threshold (RULE), logistic regression (LR), random forest (RF), gradient
+boosting (GB), and XGBoost (XGB). Fast tabular models carry a 50\,ms inference
+budget; the GB-slow configuration carries a 5000\,ms budget to represent a
+heavier model whose latency exceeds a short deadline.
 
-\subsection{The deadline metric separates detectors batch P/R cannot}
+All numbers come from code run with one fixed seed; no value is reported that
+the harness did not compute. The in-repo stream has \Nevents{} events with
+\Nfraud{} frauds (\Frate), split into a \Neval-event evaluation set with
+\Nevalfraud{} frauds. The Tide and pix-fraud-br runs use a label-stratified,
+seed-pinned subsample of \PfbN{} transactions each. Confidence intervals are
+written \emph{value}~[lo,~hi].
 
-\begin{table}[ht]
+\begin{table}[htbp]
+\centering
+\caption{Experiment design: what each experiment tests, its data, and the metric
+it reports. Result numbers appear in the per-finding tables and figures.}
+\label{tab:exp}
+\footnotesize
+\begin{tabularx}{\textwidth}{lLll}
+\toprule
+ID & Tests & Data & Metric \\
+\midrule
+E1 & Deadline metric discriminates equal-batch detectors & in-repo, \Nevents{} events & pre-deadline frac., F1, PR-AUC \\
+E2 & Single-hop-trained detector on unseen scenarios & in-repo, four scenarios & per-scenario recall \\
+E3 & Rare-illicit cross-generator transfer & Tide HI/LI, \PfbN{} sub. & F1, PR-AUC, recall \\
+E4 & Stream reproducibility under a fixed seed & in-repo & frame checksum equality \\
+E5 & Pix-native generator, reproduce prior baseline & pix-fraud-br, \PfbN{} sub. & F1, PR-AUC, deadline \\
+E6 & Train on one generator, test on another & all three generators & PR-AUC, F1 \\
+E7 & Graph-neural-network baseline on GPU & in-repo, Tide-HI & PR-AUC, fit time \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{The deadline metric separates detectors that batch metrics cannot}
+
+\begin{table}[htbp]
 \centering
 \caption{Batch metrics and pre-deadline flag fraction at selected deadlines, on
-the in-repo layer (E1) and the released pix-fraud-br set (E5). On both, the slow
-gradient-boosting model matches the fast model in batch terms yet flags
-\gbPreThousand{} of frauds before a 1000\,ms deadline.}
+the in-repo layer (E1) and the released pix-fraud-br set (E5). RULE: rule
+threshold; LR/RF/GB/XGB: the four classifiers; ``slow'' marks the 5000\,ms
+inference budget.}
 \label{tab:e1}
 \footnotesize
-\begin{tabular}{llcccccc}
+\begin{tabularx}{\textwidth}{Llcccccc}
 \toprule
-Source & Detector & Budget & F1 & PR-AUC & \multicolumn{3}{c}{Pre-deadline frac.\ @ deadline} \\
+Source & Det. & Budget & F1 & PR-AUC & \multicolumn{3}{c}{Pre-deadline frac.\ @ deadline} \\
 \cmidrule(lr){6-8}
  & & (ms) & & & 1000\,ms & 2000\,ms & 5000\,ms \\
 \midrule
-in-repo & rule\_threshold & 20 & 0.356 & 0.534 & \rulePre & \rulePre & \rulePre \\
-in-repo & lr\_fast & 50 & 0.965 & 0.976 & \lrPre & \lrPre & \lrPre \\
-in-repo & rf\_fast & 50 & \rfF & \rfPRAUC & \rfPre & \rfPre & \rfPre \\
-in-repo & gb\_slow & 5000 & \gbF & \gbPRAUC & \gbPreThousand & \gbPreThousand & \gbPreFiveK \\
+in-repo & RULE & 20 & 0.356 & 0.534 & \rulePre & \rulePre & \rulePre \\
+in-repo & LR & 50 & 0.965 & 0.976 & \lrPre & \lrPre & \lrPre \\
+in-repo & RF & 50 & \rfF & \rfPRAUC & \rfPre & \rfPre & \rfPre \\
+in-repo & GB-slow & 5000 & \gbF & \gbPRAUC & \gbPreThousand & \gbPreThousand & \gbPreFiveK \\
 \midrule
-pix-fraud-br & rf\_fast & 50 & \PfbXgbF & \PfbRfPRAUC & 0.828 & 0.828 & 0.828 \\
-pix-fraud-br & xgb\_fast & 50 & \PfbXgbF & \PfbXgbPRAUC & \PfbXgbPre & \PfbXgbPre & \PfbXgbPre \\
-pix-fraud-br & gb\_slow & 5000 & \PfbGbF & 0.930 & \PfbGbPre & \PfbGbPre & 0.830 \\
+pix-fraud-br & RF & 50 & \PfbRfF & \PfbRfPRAUC & 0.828 & 0.828 & 0.828 \\
+pix-fraud-br & XGB & 50 & \PfbXgbF & \PfbXgbPRAUC & \PfbXgbPre & \PfbXgbPre & \PfbXgbPre \\
+pix-fraud-br & GB-slow & 5000 & \PfbGbF & 0.930 & \PfbGbPre & \PfbGbPre & 0.830 \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 The headline result is \textbf{\rfPre{} versus \gbPreThousand}. As
 Table~\ref{tab:e1} and Figure~\ref{fig:results}(a) show, on the in-repo layer
-\texttt{rf\_fast} and \texttt{gb\_slow} are statistically indistinguishable in
-batch terms (F1 \rfF{} vs \gbF; PR-AUC \rfPRAUC{} vs \gbPRAUC), yet the deadline
-metric separates them completely: at a 1000\,ms deadline \texttt{rf\_fast} flags
-\rfPre{}~[\rfPreLo,~\rfPreHi] of frauds in time while \texttt{gb\_slow}, whose
-5000\,ms inference budget exceeds the window, flags
+the fast random forest (RF) and the slow gradient-boosting model (GB-slow) are
+statistically indistinguishable in batch terms (F1 \rfF{} vs \gbF; PR-AUC
+\rfPRAUC{} vs \gbPRAUC), yet the deadline metric separates them completely: at a
+1000\,ms deadline RF flags \rfPre{}~[\rfPreLo,~\rfPreHi] of frauds in time while
+GB-slow, whose 5000\,ms inference budget exceeds the window, flags
 \gbPreThousand{}~[\gbPreThousand,~\gbPreThousandHi], recovering to \gbPreFiveK{}
-only once the deadline reaches its budget. This is a deterministic latency
-property: a detector cannot decide before its own budget, so batch P/R is
-structurally blind to it. Crucially, the \emph{same} inversion appears on the
-real pix-fraud-br set, where \texttt{xgb\_fast} and \texttt{gb\_slow} have
-near-equal batch F1 (\PfbXgbF{} vs \PfbGbF) but pre-deadline fractions of
-\PfbXgbPre{} and \PfbGbPre{} at 1000\,ms. The metric is discriminative and not
-redundant, on synthetic and on real third-party data alike (C1).
+only once the deadline reaches its budget. This is a latency property: a
+detector cannot decide before its own budget elapses, so a batch metric is blind
+to it. The same inversion appears on the real pix-fraud-br set, where the fast
+XGBoost model (XGB) and GB-slow have near-equal batch F1 (\PfbXgbF{} vs \PfbGbF)
+but pre-deadline fractions of \PfbXgbPre{} and \PfbGbPre{} at 1000\,ms. The
+metric carries information that precision and recall do not, on synthetic and on
+real third-party data alike (C1).
 
 \subsection{Single-hop-trained detectors collapse on the new scenarios}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{fig_results.pdf}
 \caption{Results: (a)~pre-deadline flag fraction vs deadline (E1), fast
 detectors plateau high while the slow one stays at zero until its budget;
 (b)~per-scenario recall of a single-hop-trained detector with Wilson 95\% CIs
-(E2), collapsing on coercion and multi-hop MED; (c)~best PR-AUC with bootstrap
-95\% CIs across the three generators (E1/E3/E5), honest and spread out.}
+(E2), dropping to zero on coercion and multi-hop MED; (c)~best PR-AUC with
+bootstrap 95\% CIs across the three generators (E1/E3/E5).}
 \label{fig:results}
 \end{figure}
 
-Detectors trained only on the single-hop case, legitimate traffic plus
-account-takeover, the modeling scope of the open Pix generator, keep perfect
-recall on that scenario (\eAto) yet collapse on the Pix-native scenarios they
-never saw: recall \textbf{\eCoerc}~[\eCoerc,~\eCoercHi] on coercion,
+A detector trained only on the single-hop case, legitimate traffic plus
+account-takeover, which is the modeling scope of the open Pix generator, keeps
+full recall on that scenario (\eAto) yet collapses on the Pix-native scenarios
+it never saw: recall \textbf{\eCoerc}~[\eCoerc,~\eCoercHi] on coercion,
 \textbf{\eMed}~[\eMed,~\eMedHi] on multi-hop MED-2.0 refunds (zero at every one
 of the five layers), and only \eMule{}~[\eMuleLo,~\eMuleHi] on mule chains
 (Figure~\ref{fig:results}(b)). This quantifies why the two scenarios absent from
-open prior work matter: a detector tuned on the single-transfer case is
-structurally unable to catch them (C2). We report these low numbers as the
-finding, not as a defect, since the unseen Pix-native scenarios are precisely
-the hard ones the regulation now targets.
+open prior work matter: a detector tuned on the single-transfer case does not
+generalize to them (C2). These low numbers are the finding, because the unseen
+Pix-native scenarios are the hard ones the regulation now targets.
 
 \subsection{Cross-generator credibility on real released datasets}
 
-\begin{table}[ht]
+\begin{table}[htbp]
 \centering
 \caption{Cross-generator results on three independently-authored generators
-(E3, E5). PR-AUC carries a bootstrap 95\% CI; recall a Wilson 95\% CI. Numbers
-are honestly sub-perfect and spread by illicit ratio; the rule floor is near
-useless under heavy imbalance.}
+(E3, E5). PR-AUC carries a bootstrap 95\% CI; recall a Wilson 95\% CI. RULE: the
+rule threshold; XGB: XGBoost.}
 \label{tab:cross}
 \footnotesize
-\begin{tabular}{llccc}
+\begin{tabularx}{\textwidth}{Llccc}
 \toprule
-Generator (illicit) & Detector & F1 & PR-AUC [95\% CI] & Recall [95\% CI] \\
+Generator (illicit) & Det. & F1 & PR-AUC [95\% CI] & Recall [95\% CI] \\
 \midrule
-pix-fraud-br (\PfbRate) & xgb\_fast & \PfbXgbF & \PfbXgbPRAUC~[\PfbXgbPRAUClo,~\PfbXgbPRAUChi] & 0.844 [0.823,\,0.863] \\
-pix-fraud-br (\PfbRate) & rule\_threshold & 0.015 & \PfbRulePRAUC~[0.013,\,0.015] & 0.927 [0.911,\,0.940] \\
-Tide-HI (\TideHiRate) & xgb\_fast & 0.606 & \TideHiXgbPRAUC~[\TideHiXgbPRAUClo,~\TideHiXgbPRAUChi] & \TideHiXgbR{} [0.380,\,0.492] \\
-Tide-LI (\TideLiRate) & xgb\_fast & 0.631 & \TideLiXgbPRAUC~[0.448,\,0.601] & \TideLiXgbR{} [0.387,\,0.537] \\
+pix-fraud-br (\PfbRate) & XGB & \PfbXgbF & \PfbXgbPRAUC~[\PfbXgbPRAUClo,~\PfbXgbPRAUChi] & 0.844 [0.823,\,0.863] \\
+pix-fraud-br (\PfbRate) & RULE & 0.015 & \PfbRulePRAUC~[0.013,\,0.015] & 0.927 [0.911,\,0.940] \\
+Tide-HI (\TideHiRate) & XGB & 0.606 & \TideHiXgbPRAUC~[\TideHiXgbPRAUClo,~\TideHiXgbPRAUChi] & \TideHiXgbR{} [0.380,\,0.492] \\
+Tide-LI (\TideLiRate) & XGB & 0.631 & \TideLiXgbPRAUC~[0.448,\,0.601] & \TideLiXgbR{} [0.387,\,0.537] \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 The harness and the deadline metric transfer to all three generators with no
-code change, and the numbers behave exactly as a credible benchmark should:
-they are well below 1.00 and they spread with the difficulty of the regime
+code change, and the numbers spread with the difficulty of the regime
 (Table~\ref{tab:cross}, Figure~\ref{fig:results}(c)). On the Pix-native
 pix-fraud-br set, the strongest tabular detector reaches PR-AUC
-\PfbXgbPRAUC~[\PfbXgbPRAUClo,~\PfbXgbPRAUChi], reproducing the dataset's
+\PfbXgbPRAUC~[\PfbXgbPRAUClo,~\PfbXgbPRAUChi], which matches the dataset's
 published XGBoost baseline (PR-AUC \PfbPubPRAUC{} on its own validation
 sample)\footnote{\href{https://huggingface.co/datasets/andremessina/pix-fraud-br}{pix-fraud-br model card, Hugging Face, 2026}.}
-within tolerance and confirming the harness does not inflate scores. On the
-rare-illicit Tide data the same detectors drop sharply, to PR-AUC
-\TideHiXgbPRAUC{} on Tide-HI and \TideLiXgbPRAUC{} on Tide-LI, with recall near
-0.45, while the rule floor is near useless (PR-AUC \TideHiRulePRAUC{}). A
-cross-generator transfer test (E6) makes the non-circularity explicit: a random
-forest trained on one generator and tested on another collapses to PR-AUC
+within tolerance, so the harness does not inflate scores. On the rare-illicit
+Tide data the same detectors drop sharply, to PR-AUC \TideHiXgbPRAUC{} on Tide-HI
+and \TideLiXgbPRAUC{} on Tide-LI, with recall near 0.45, while the rule floor
+gives little signal under heavy imbalance (PR-AUC \TideHiRulePRAUC{}). A
+cross-generator transfer test (E6) confirms the separation between generators: a
+random forest trained on one and tested on another drops to PR-AUC
 \TransInPfbPRAUC{} (in-repo to pix-fraud-br) and \TransPfbInPRAUC{}
-(pix-fraud-br to in-repo), versus \TransPfbPfbF{} F1 in-distribution. No detector
-trivially reaches 1.00 anywhere (C3).
+(pix-fraud-br to in-repo), against \TransPfbPfbF{} F1 in-distribution. No
+detector reaches 1.00 anywhere (C3).
 
-\subsection{Baselines, ablations, and a GPU graph baseline}
+\subsection{Baselines, ablations, and a graph baseline}
 
-The four tabular baselines (logistic regression, random forest, gradient
-boosting, XGBoost) and the rule floor are scored on identical inputs throughout;
-the metric ablation is the rank inversion itself, where the deadline-aware
-ranking contradicts the batch ranking for two models with equal batch F1, and
-the generator ablation is the cross-generator spread above. As a graph-aware
-baseline for the multi-hop axis, we trained a two-layer GraphSAGE detector on
-the available GPU; it is an honest, imperfect baseline, reaching PR-AUC only
+The four classifiers and the rule floor are scored on identical inputs
+throughout. The metric ablation is the rank inversion itself, where the
+deadline-aware ranking contradicts the batch ranking for two models with equal
+batch F1, and the generator ablation is the cross-generator spread above. As a
+graph-aware baseline for the multi-hop axis, we trained a two-layer GraphSAGE
+detector on the GPU, implemented with PyTorch Geometric; it reaches PR-AUC
 \GnnInPRAUC{} on the in-repo layer and \GnnTideHiPRAUC{} on the sparse Tide-HI
 graph, below the tabular models, while fitting in about \GnnFitS{}\,s. Per-event
 inference latency is sub-millisecond for every detector, so the deadline metric
 is dominated by the configured inference budget rather than scoring overhead.
-Scaling the GNN with neighbour sampling to production-volume graphs is left to
-future work.
+Scaling the graph model with neighbour sampling to production-volume graphs is
+left to future work.
 
 \section{Limitations and Conclusion}\label{sec:concl}
 
@@ -465,18 +494,18 @@ production-volume traffic is left to future work.
 
 \noindent\textbf{Conclusion.} We opened with the question of how to measure a
 Pix fraud detector when the regulation demands a decision in time, not just
-accuracy. \sysname{} answers it: the pre-deadline flag fraction separates two
-detectors that batch precision and recall rank as equivalent (\rfPre{} vs
-\gbPreThousand{} at 1000\,ms on the in-repo layer, \PfbXgbPre{} vs \PfbGbPre{} on
-the real pix-fraud-br set), it exposes the collapse of single-hop-trained
-detectors on the multi-hop MED-2.0 and coercion scenarios that no open artifact
-covered, and across three independently-authored generators it yields honest,
-sub-perfect numbers (best PR-AUC \PfbXgbPRAUC{} on pix-fraud-br, only
+accuracy. The pre-deadline flag fraction answers it: it separates two detectors
+that batch precision and recall rank as equivalent (\rfPre{} vs \gbPreThousand{}
+at 1000\,ms on the in-repo layer, \PfbXgbPre{} vs \PfbGbPre{} on the real
+pix-fraud-br set), it exposes the collapse of single-hop-trained detectors on
+the multi-hop MED-2.0 and coercion scenarios that no open artifact covered, and
+across three independently-authored generators it yields sub-perfect numbers
+that spread with difficulty (best PR-AUC \PfbXgbPRAUC{} on pix-fraud-br,
 \TideHiXgbPRAUC{} on rare-illicit Tide). By scoring detectors against the
 real-time-blocking intent that the MED-2.0 mandate of February 2026 now
 enforces, rather than against batch metrics alone, \sysname{} gives researchers
-a reproducible instrument for Pix fraud-prevention compliance, released with its
-scenarios, pinned datasets, and
+a reproducible instrument for studying Pix fraud-prevention under a deadline,
+released with its scenarios, pinned datasets, and
 experiments.\footnote{\href{https://anonymous.4open.science/}{Artifact anonymized for double-blind review}.}
 
 \bibliographystyle{sbc}

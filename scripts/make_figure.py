@@ -44,11 +44,19 @@ def main(argv: list[str]) -> int:
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(9.6, 2.7))
 
     # Panel (a): pre-deadline flag fraction vs deadline (E1).
+    label_map = {
+        "rule_threshold": "RULE",
+        "lr_fast": "LR",
+        "rf_fast": "RF",
+        "gb_slow": "GB-slow",
+        "xgb_fast": "XGB",
+    }
     markers = ["o", "s", "^", "D"]
     for det, marker in zip(e1["detectors"], markers, strict=False):
         pdf = det["pre_deadline_fraction"]
         y = [_pdf_value(pdf[str(d)]) for d in DEADLINES]
-        ax1.plot(DEADLINES, y, marker=marker, label=det["detector"], linewidth=1.3)
+        name = label_map.get(det["detector"], det["detector"])
+        ax1.plot(DEADLINES, y, marker=marker, label=name, linewidth=1.3)
     ax1.set_xscale("log")
     ax1.set_xlabel("decision deadline (ms)")
     ax1.set_ylabel("pre-deadline flag fraction")
@@ -96,7 +104,7 @@ def main(argv: list[str]) -> int:
     ax3.set_ylabel("best PR-AUC (95% CI)")
     ax3.grid(True, axis="y", linestyle=":", linewidth=0.4)
     ax3.tick_params(axis="x", labelrotation=20, labelsize=7)
-    ax3.set_title("(c) honest spread across generators", fontsize=9)
+    ax3.set_title("(c) PR-AUC spread across generators", fontsize=9)
 
     fig.tight_layout()
     out.parent.mkdir(parents=True, exist_ok=True)
