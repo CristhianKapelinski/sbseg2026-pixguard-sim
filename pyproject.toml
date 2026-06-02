@@ -22,6 +22,10 @@ dev = [
     "pytest>=8.0,<9",
     "ruff>=0.5,<0.16",
 ]
+# Build-only extra to regenerate the paper figure; not a runtime dependency.
+figures = [
+    "matplotlib>=3.7,<3.11",
+]
 
 [project.scripts]
 pixguard-sim = "pixguard_sim.cli:main"
