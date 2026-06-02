@@ -5,7 +5,7 @@ Reads the harness JSON outputs and writes a compact three-panel PDF:
 headline discriminative curve; (b) per-scenario recall of single-hop-trained
 detectors from E2, showing the collapse on the PIX-native scenarios; (c) PR-AUC
 with 95% bootstrap CIs across the in-repo, pix-fraud-br, and real Tide HI/LI
-generators (E3/E5), showing the honest, sub-perfect, spread-out cross-generator
+generators (E3/E5), showing the sub-perfect, spread-out cross-generator
 behaviour. The figure plots only numbers the harness computed; it fabricates
 nothing.
 
@@ -33,7 +33,7 @@ def _pdf_value(entry: object) -> float:
 
 def main(argv: list[str]) -> int:
     results_dir = Path(argv[1]) if len(argv) > 1 else Path("results")
-    out = Path(argv[2]) if len(argv) > 2 else Path("paper/fig_results.pdf")
+    out = Path(argv[2]) if len(argv) > 2 else Path("paper/figs/fig_results.pdf")
 
     e1 = json.loads((results_dir / "e1.json").read_text(encoding="utf-8"))
     e2 = json.loads((results_dir / "e2.json").read_text(encoding="utf-8"))
