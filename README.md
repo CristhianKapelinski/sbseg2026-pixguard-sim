@@ -1,179 +1,166 @@
-# PixGuard-Sim
+# PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors
 
-A deadline-aware evaluation harness for PIX fraud detectors, with multi-hop
-MED-2.0 refund and coercion scenarios. This repository is the artifact backing
-the paper *PixGuard-Sim: A Deadline-Aware Evaluation Harness for PIX Fraud
-Detectors with Multi-Hop MED-2.0 and Coercion Scenarios*.
+PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness** for fraud detectors targeting Pix, Brazil's instant-payment system. Because Pix settlement is irrevocable and the new MED-2.0 regulation (mandatory since 2 February 2026) requires institutions to *block fraud before money settles*, accuracy alone is not enough: a detector must also decide **in time**. PixGuard-Sim scores any detector by the **pre-deadline flag fraction** — the share of frauds flagged within a configurable pre-transaction decision deadline — alongside precision, recall, F1, and PR-AUC with 95% confidence intervals. It also ships reference definitions of two Pix-native scenarios absent from open prior work (multi-hop MED-2.0 refund tracing and coercion) and validates everything across three independently-authored generators through thin, checksum-pinned adapters. The headline finding: two detectors with statistically indistinguishable batch F1 are separated decisively by the deadline metric — at a 1000 ms deadline one flags **0.974** of frauds in time while the other flags **0.000** until its 5000 ms budget elapses — and the same inversion reappears on the real released pix-fraud-br set (**0.844** vs **0.000**). All inputs are synthetic and ground-truth labeled; no number is a real-world fraud rate.
 
-PixGuard-Sim is **not** a PIX dataset generator. It is a thin,
-detector-agnostic and generator-agnostic evaluation harness that scores any PIX
-fraud detector by the fraction of frauds it flags before a configurable
-pre-transaction decision deadline (the *pre-deadline flag fraction*), in
-addition to conventional precision/recall/F1/PR-AUC reported with 95%
-confidence intervals. On top of the harness it ships reference definitions of
-two PIX-native scenarios absent from open prior artifacts: multi-hop MED-2.0
-refund tracing (up to five layers) and coercion. The harness is validated
-across three independently-authored generators (an in-repo synthetic source,
-the released Tide HI/LI AML datasets, and the released pix-fraud-br set) through
-thin, checksum-verified adapters.
+> **Paper:** *PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors* — SBRC 2026 Salão de Ferramentas.
 
-> All data used here is **SYNTHETIC** and ground-truth labeled, whether produced
-> by the in-repo generator or by a released third-party generator; no number is
-> a measurement of a real-world fraud rate. Real PIX transaction data is
-> private. The reported results are detector-vs-harness measurements that are
-> honestly imperfect and spread across generators by design.
+> **For SBRC 2026 artifact reviewers (SeloD/F/S/R).** This README is the single, self-contained guide for the evaluation: follow it end to end and you reach all four seals. The other Markdown file in the repository (`DOCUMENTATION.md`) is complementary technical documentation with the full captured experiment output and is **not required** for the artifact review.
 
-## Repository structure
+---
 
-```
-src/pixguard_sim/
-  config.py            resolved configuration (frozen dataclasses)
-  logging_setup.py     console + file logging, content hashing
-  schema.py            PIX-native event schema and feature columns
-  base_graph.py        lightweight scale-free base interaction graph
-  generator.py         orchestration of the synthetic event stream
-  scenarios/           one module per scenario (mule_chain, account_takeover,
-                       fake_med_refund, coercion, legit)
-  detectors/           detector plugin interface + rule + sklearn baselines
-  metrics.py           batch metrics + the pre-deadline flag fraction + CIs
-  harness.py           latency-aware evaluation harness (the core)
-  adapters.py          real-schema adapters: Tide, pix-fraud-br, AMLSim
-  data_io.py           checksum-verified dataset loading + manifest
-  detectors/gnn.py     GraphSAGE GPU baseline (optional torch extra)
-  experiments.py       experiment drivers E1-E7
-  cli.py               command-line interface
-configs/default.json   versioned default configuration
-tests/                 unit tests (no network, no containers)
-paper/                 LaTeX source of the paper
-Dockerfile             pinned image
-```
+## README Structure
 
-## Badges claimed
+| Section | Description |
+|---|---|
+| [Considered Seals](#considered-seals) | The four SBRC quality seals targeted by this artifact |
+| [Basic Information](#basic-information) | Hardware, OS, and software environment |
+| [Dependencies](#dependencies) | Key pinned packages and how third-party inputs are fetched |
+| [Security Concerns](#security-concerns) | Risks and mitigations for evaluators |
+| [Installation](#installation) | Clone, install `uv`, `uv sync` |
+| [Minimal Test](#minimal-test) | One command that exercises the real pipeline end to end |
+| [Experiments](#experiments) | Reproduction of the paper's claims, one designated main claim |
+| [License](#license) | Licensing information |
 
-- **Available**: public, open source (MIT), self-contained, no external data
-  needed to run the main claim.
-- **Functional**: a single command runs the full pipeline (generate, evaluate,
-  report) and writes real outputs to `results/` and `logs/`.
-- **Sustainable**: `src/` layout, pinned dependencies, typed and documented
-  modules, unit tests, lint-clean (`ruff`).
-- **Reproducible**: fixed seeds, content-hashed inputs/outputs, deterministic
-  generation (experiment E4 checks byte-stability); the main claim (E1)
-  reproduces exactly, and the external datasets are pinned by checksum in a
-  `data_manifest.json`.
+---
 
-## Basic information
+## Considered Seals
 
-- OS: Linux (developed and run on Ubuntu); macOS/Windows expected to work.
-- Runtime: Python >= 3.10 (validated on 3.12). The tabular pipeline runs on CPU;
-  the optional GraphSAGE baseline (E7) uses a CUDA GPU when one is present and
-  falls back to CPU otherwise.
-- Hardware: a modern multi-core machine. The in-repo experiments (E1, E2, E4)
-  use < 1 GB RAM and finish in under a minute; the cross-generator experiments
-  (E3, E5, E6) on a 400k-row subsample finish in a few minutes each.
-- Disk: the external datasets (Tide HI/LI ~1.8 GB, pix-fraud-br ~134 MB) are
-  fetched to a user-chosen `--data-dir` outside the repository and gitignored.
+The seals considered are: **Available (SeloD)**, **Functional (SeloF)**, **Sustainable (SeloS)**, and **Reproducible (SeloR)**.
+
+- **SeloD — Available.** The artifact is public and open source (MIT), self-contained in this repository (`git clone https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim`), and the main claim runs with no external data. <!-- TODO(double-blind): swap to anonymized mirror -->
+- **SeloF — Functional.** A single command (the [Minimal Test](#minimal-test)) runs the full pipeline — generate, fit detectors, latency-aware scoring, metrics with CIs — and writes a real `results/e1.json` with the headline result.
+- **SeloS — Sustainable.** A `src/` layout with one module per concern (`generator.py`, `harness.py`, `metrics.py`, `detectors/`, `scenarios/`, `adapters.py`, `data_io.py`), frozen-dataclass configs, typed and docstringed code, unit tests (`tests/`), and a lint-clean `ruff` configuration. Every dependency is pinned in [`pyproject.toml`](pyproject.toml) and [`uv.lock`](uv.lock).
+- **SeloR — Reproducible.** Fixed seeds, content-hashed inputs/outputs, byte-stable generation (experiment E4 checks frame-hash equality). The main claim (E1) reproduces exactly; the cross-generator runs reproduce within bootstrap CIs from datasets pinned by checksum in `results/data_manifest.json`.
+
+---
+
+## Basic Information
+
+| | |
+|---|---|
+| **OS** | Linux (developed and run on Ubuntu 24.04). macOS/Windows expected to work for the in-repo experiments. |
+| **Python** | 3.10+ (validated on 3.13 via `uv`). |
+| **RAM** | < 1 GB for the in-repo experiments (E1/E2/E4); ~6 GB peak for the cross-generator runs (E3/E5/E6) on a 400k-row subsample. |
+| **Disk** | `.venv` after `uv sync`: ~1.1 GB. Optional third-party datasets (only for the cross-generator claim): ~1.8 GB (Tide) + ~130 MB (pix-fraud-br), fetched to a scratch dir outside the repo. |
+| **GPU** | Not required. The whole tabular pipeline runs on CPU. A CUDA GPU is used only by the optional GraphSAGE baseline (E7) and falls back to CPU otherwise. |
+| **Reference machine** | AMD Ryzen 5 8600G (6c/12t) · 30 GB RAM · NVIDIA RTX 5060 Ti 16 GB · Ubuntu 24.04 · Python 3.13 — all measured times in this README were taken here. |
+
+---
 
 ## Dependencies
 
-Pinned in `pyproject.toml`:
+All packages are pinned in [`pyproject.toml`](pyproject.toml) / [`uv.lock`](uv.lock) and installed by `uv sync`; no manual `pip` step is needed.
 
-- Core: `numpy>=1.26,<2.2`, `pandas>=2.1,<2.3`, `scikit-learn>=1.4,<1.6`,
-  `networkx>=3.2,<3.5`.
-- Cross-generator extra (`datasets`): `datasets`, `pyarrow`, `xgboost` to
-  obtain and score the released third-party datasets.
-- GPU baseline extra (`gnn`): `torch` for the GraphSAGE detector.
-- Dev extras: `pytest`, `ruff`.
+- **Core (installed by `uv sync`):** `numpy`, `pandas`, `scikit-learn`, `networkx`. Sufficient for the [Minimal Test](#minimal-test) and the in-repo experiments (E1, E2, E4).
+- **Cross-generator extra (`--extra datasets`):** `datasets`, `pyarrow`, `xgboost` — only needed for the cross-generator claim (E3/E5/E6) that scores real third-party data.
+- **GPU baseline extra (`--extra gnn`):** `torch` — only for the optional GraphSAGE baseline (E7).
 
-## Security concerns
+**Third-party inputs are auto-fetched.** The two public generators are downloaded on demand by [`scripts/exp_cross_generator.sh`](scripts/exp_cross_generator.sh): Tide HI/LI from Zenodo (`10.5281/zenodo.18804069`, CC BY 4.0) over HTTPS, and pix-fraud-br from Hugging Face (`andremessina/pix-fraud-br`, ODC-BY). Each file is verified against the provider-published checksum and pinned in `results/data_manifest.json` before use; a missing or mismatched file raises a typed error rather than fabricating a result. No dataset bytes are vendored in the repository.
 
-The tool runs only its own code over synthetic data; it executes no untrusted
-code. The dataset loaders fetch only the named public datasets over HTTPS and
-verify each file against the provider-published checksum before use; a missing
-or mismatched file raises a typed error rather than fabricating a result. No
-credentials are stored in the repository, and the data root is read from the
-`--data-dir` flag or the `PIXGUARD_DATA_DIR` environment variable, never
-hardcoded.
+---
+
+## Security Concerns
+
+- The tool runs **entirely locally** and executes only its own code over synthetic data; it runs no untrusted code and ships no containers required for the review.
+- **Network** is used only by the optional cross-generator claim, which fetches the two named public datasets over HTTPS (Zenodo, Hugging Face). The minimal test and the main claim need no network.
+- **No credentials** are stored in the repository. The external data root is never hardcoded — it is read from the `--data-dir` flag or the `PIXGUARD_DATA_DIR` environment variable, and downloads land in a scratch directory outside the repo (gitignored).
+
+---
 
 ## Installation
 
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -e ".[dev,datasets]"      # add ",gnn" for the GPU GraphSAGE baseline
+# 1. Clone the repository
+git clone https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim
+cd sbseg2026-pixguard-sim
+
+# 2. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. Install the pinned environment
+uv sync
 ```
 
-## Quickstart (copy-paste)
+`uv sync` is the only install step. On the reference machine it completes in **~4 s** with a warm cache (first-ever run downloads the wheels, a few tens of seconds depending on network). Every command below is run with `uv run`.
 
-Reproduce the main claim with no external data (~15 s):
+---
+
+## Minimal Test
+
+One command. It runs the designated main-claim experiment (E1) on a freshly generated synthetic Pix stream and prints the headline result, exercising the full pipeline (generate → fit detectors → latency-aware scoring → metrics with CIs). No external data, no network.
 
 ```bash
-pixguard-sim --config configs/default.json reproduce && cat results/e1.json
+./scripts/minimal_test.sh
 ```
 
-Reproduce the cross-generator results on the real released datasets. Fetch the
-data once to a directory of your choice, then run (a few minutes):
+**Expected time:** ~6 s on the reference machine (measured: 6.21 s).
+**Expected resources:** < 1 GB RAM, negligible disk.
+**Expected output:** a table over four baseline detectors. The key observation is that `rf_fast` and `gb_slow` have near-identical batch F1, yet at the 1000 ms deadline `rf_fast` flags a high fraction of frauds in time while `gb_slow` flags **0.000** until the deadline reaches its 5000 ms inference budget:
 
-```bash
-export DATA=/path/to/data            # any directory with ~2 GB free
-# Tide HI/LI (Zenodo) and pix-fraud-br (Hugging Face) are public, no auth:
-mkdir -p "$DATA/tide"
-for f in generated_transactions_HI.csv generated_transactions_LI.csv \
-         generated_nodes_HI.csv generated_nodes_LI.csv; do
-  curl -sSL -o "$DATA/tide/$f" \
-    "https://zenodo.org/records/18804069/files/$f?download=1"
-done
-python -c "from datasets import load_dataset; \
-  load_dataset('andremessina/pix-fraud-br', split='train') \
-  .to_pandas().to_parquet('$DATA/pix_fraud_br.parquet')"
-pixguard-sim --data-dir "$DATA" manifest      # verifies checksums, pins them
-pixguard-sim --data-dir "$DATA" run --experiments E3 E5 E6
+```
+detector             F1  pre@1000ms  pre@5000ms
+rule_threshold    0.444       0.351       0.351
+lr_fast           0.851       0.754       0.754
+rf_fast           0.982       0.965       0.965
+gb_slow           0.982       0.000       0.965
 ```
 
-## Minimal test (real pipeline, end to end)
+This uses a reduced "fast" configuration so the pipeline finishes in seconds; the rank inversion is identical to the full run. A written `results/e1.json` is the real, inspectable output.
 
-Runs the designated main-claim experiment (E1) on freshly generated synthetic
-data and writes a real JSON result. Expected time: under 15 seconds on a
-laptop.
-
-```bash
-pixguard-sim --config configs/default.json reproduce
-cat results/e1.json
-```
-
-Expected output: a JSON report with batch metrics for four baseline detectors
-and a pre-deadline-flag-fraction curve over the deadline sweep. The headline
-observation is that two detectors with near-identical batch metrics (the fast
-random forest and the slow gradient-boosting model) are separated by the
-pre-deadline flag fraction: at a 1000 ms deadline the fast detector flags a
-high fraction of frauds in time while the slow one flags none until the
-deadline reaches its 5000 ms inference budget.
+---
 
 ## Experiments
 
-The in-repo experiments need no external data; E3/E5/E6/E7 read the datasets
-under `--data-dir`. Each writes `results/e<n>.json` and a timestamped log.
+Each claim below is **one command**. Every claim defaults to a **fast** variant (a few seconds, reduced event count and bootstrap resamples); pass `--full` to run the paper's full configuration. The fast variant reproduces the same qualitative result. The cross-generator claim is gated behind a separate script and downloads ~2 GB of third-party data — reviewers short on time or disk may instead inspect the pre-computed `results/e3.json`, `results/e5.json`, `results/e6.json`, which are the real full-run outputs.
 
-| ID | Claim | Output | Data | Main? |
-|----|-------|--------|------|-------|
-| E1 | The pre-deadline flag fraction is discriminative: detectors with near-identical batch P/R are separated by it. | `results/e1.json` | in-repo | yes |
-| E2 | Detectors trained only on the single-hop case collapse on multi-hop MED-2.0 and coercion. | `results/e2.json` | in-repo | |
-| E3 | Cross-generator credibility on the real released Tide HI/LI datasets (honest, sub-perfect, rare-illicit). | `results/e3.json` | Tide | |
-| E4 | Determinism: two generations are byte-stable. | `results/e4.json` | in-repo | |
-| E5 | Reproduce the prior-art baselines on the released pix-fraud-br set within tolerance, then add the deadline metric. | `results/e5.json` | pix-fraud-br | |
-| E6 | Cross-generator transfer (train on one generator, test on another) collapses, the non-circularity check. | `results/e6.json` | in-repo + pix-fraud-br | |
-| E7 | GraphSAGE GPU baseline across generators, with measured fit/score time. | `results/e7.json` | in-repo (+ Tide) | |
+| Claim | Paper experiment(s) | Data | Main? |
+|---|---|---|---|
+| #1 The deadline metric separates equal-batch detectors | E1 | in-repo | **yes** |
+| #2 Single-hop-trained detectors collapse on the new scenarios | E2 | in-repo | |
+| #3 Cross-generator credibility on real released datasets | E3, E5, E6 | Tide + pix-fraud-br | |
 
-Designated reproduction target: **E1** (deterministic, no external data). The
-cross-generator numbers (E3, E5, E6) reproduce within bootstrap CI; the prior-art
-PR-AUC on pix-fraud-br lands within tolerance of the dataset's published value.
+> Two supporting experiments from the paper are not separate reviewer steps: **E4** (determinism) is a one-liner — `uv run pixguard-sim --config configs/default.json run --experiments E4` — that writes `results/e4.json` with `"deterministic": true` (frame hash `a1064a3436566c25` on both runs); **E7** (the optional GPU GraphSAGE baseline) requires the `gnn` extra and its measured numbers are in `results/e7.json` and `DOCUMENTATION.md`.
 
-## Reproducing in Docker
+### Claim #1 (MAIN) — The pre-deadline flag fraction separates detectors that batch metrics cannot
+
+**Description.** Two detectors with statistically indistinguishable batch F1 (a fast random forest and a slow gradient-boosting model) are ranked differently by the deadline metric: the slow model cannot decide before its inference budget elapses, so it flags 0 frauds within a 1000 ms deadline while the fast one flags nearly all. This is the spine claim (C1) and the designated reproduction target.
 
 ```bash
-docker build -t pixguard-sim .
-docker run --rm -v "$PWD/results:/app/results" -v "$PWD/logs:/app/logs" \
-    pixguard-sim run --experiments E1 E2 E4
+./scripts/exp_e1_deadline.sh            # add --full for the paper's full config
 ```
+
+- **Expected time:** ~9 s fast (measured: 9.44 s); ~23 s full (measured: 22.79 s).
+- **Expected resources:** < 1 GB RAM, negligible disk.
+- **Expected result (full config, in `results/e1.json`):** `rf_fast` F1 = 0.982, pre@1000ms = 0.974; `gb_slow` F1 = 0.984, pre@1000ms = **0.000**, recovering to 0.969 at the 5000 ms deadline. On the fast config the inversion is identical (0.965 vs 0.000 → 0.965). The two are indistinguishable in batch F1 but completely separated by the deadline metric.
+
+### Claim #2 — Single-hop-trained detectors collapse on the two new Pix-native scenarios
+
+**Description.** A detector trained only on the single-hop case (legitimate traffic plus account-takeover — the modeling scope of the open Pix generator) keeps full recall there but collapses on the two scenarios no open artifact covers: coercion and multi-hop MED-2.0 refunds (C2).
+
+```bash
+./scripts/exp_e2_scenarios.sh           # add --full for the paper's full config
+```
+
+- **Expected time:** ~5 s fast (measured: 5.14 s).
+- **Expected resources:** < 1 GB RAM, negligible disk.
+- **Expected result (in `results/e2.json`):** recall ~1.000 on `account_takeover`, **0.000** on both `coercion` and `fake_med_refund` (zero at every MED layer), and partial recall (~0.40) on `mule_chain`.
+
+### Claim #3 — Cross-generator credibility on three independently-authored generators
+
+**Description.** The harness and the deadline metric transfer to two real released generators with no code change, and the numbers stay honestly sub-perfect and spread with difficulty — never a uniform 1.00 (C3). E5 reproduces the pix-fraud-br prior-art XGBoost baseline within tolerance; E3 shows detectors dropping sharply on rare-illicit Tide; E6 shows cross-generator transfer collapsing (the non-circularity check).
+
+```bash
+./scripts/exp_cross_generator.sh        # fetches ~2 GB of public data on first run
+```
+
+- **Expected time:** ~13 min once the data is local (measured: 773 s for the three experiments); the first run also downloads ~2 GB, adding several minutes depending on network. Requires the `datasets` extra (the script invokes `uv run --extra datasets`).
+- **Expected resources:** ~6 GB RAM peak, ~2 GB disk for the downloads (outside the repo).
+- **Expected result (in `results/e3.json`, `results/e5.json`, `results/e6.json`):** on pix-fraud-br, XGBoost reaches PR-AUC 0.938 (matching the dataset's published ~0.865 baseline within tolerance) and the deadline inversion reappears (xgb_fast pre@1000ms = 0.844 vs gb_slow = 0.000); on rare-illicit Tide the best PR-AUC drops to ~0.52; cross-generator transfer collapses to PR-AUC 0.016 (in-repo → pix-fraud-br) and 0.071 (pix-fraud-br → in-repo) against 0.49–0.99 in-distribution.
+
+> Reviewers may skip the run and inspect the pre-computed `results/*.json` plus `DOCUMENTATION.md`, which records every command and its real captured output.
+
+---
 
 ## License
 
-MIT. See `LICENSE`.
+MIT. See [`LICENSE`](LICENSE).
