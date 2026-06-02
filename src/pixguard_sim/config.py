@@ -92,6 +92,8 @@ class HarnessConfig:
             pre-deadline flag fraction is reported (the headline curve).
         score_threshold: Decision threshold applied to a detector's score to
             turn it into a binary flag for precision/recall.
+        n_bootstrap: Number of seed-pinned bootstrap resamples used for the
+            F1 and PR-AUC confidence intervals.
     """
 
     deadline_ms: int = 1000
@@ -105,14 +107,35 @@ class HarnessConfig:
         10000,
     )
     score_threshold: float = 0.5
+    n_bootstrap: int = 1000
+
+
+@dataclass(frozen=True)
+class DataConfig:
+    """Locations and bounds for the external real datasets.
+
+    Attributes:
+        data_dir: Root directory holding the downloaded public datasets. Never
+            hardcoded; defaults to ``None`` so the loader reads the
+            ``PIXGUARD_DATA_DIR`` environment variable instead.
+        tide_subsample_n: Bounded, label-stratified row count for a fast,
+            deterministic Tide run (the full Tide splits are ~5M rows each).
+        pix_subsample_n: Bounded, label-stratified row count for pix-fraud-br
+            (the full set is 2,000,000 rows).
+    """
+
+    data_dir: str | None = None
+    tide_subsample_n: int = 400_000
+    pix_subsample_n: int = 400_000
 
 
 @dataclass(frozen=True)
 class PipelineConfig:
-    """Top-level config bundling generator and harness settings."""
+    """Top-level config bundling generator, harness, and data settings."""
 
     generator: GeneratorConfig = field(default_factory=GeneratorConfig)
     harness: HarnessConfig = field(default_factory=HarnessConfig)
+    data: DataConfig = field(default_factory=DataConfig)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dict of the resolved configuration."""
@@ -127,7 +150,8 @@ class PipelineConfig:
         """Build a config from a (possibly partial) plain dictionary."""
         gen = GeneratorConfig(**data.get("generator", {}))
         har = HarnessConfig(**_coerce_harness(data.get("harness", {})))
-        return cls(generator=gen, harness=har)
+        dat = DataConfig(**data.get("data", {}))
+        return cls(generator=gen, harness=har, data=dat)
 
     @classmethod
     def load(cls, path: str | Path) -> PipelineConfig:

@@ -10,12 +10,15 @@ harness can be exercised end to end with no external models.
 from __future__ import annotations
 
 from pixguard_sim.detectors.base import Detector
+from pixguard_sim.detectors.gnn import GraphSageDetector, torch_available
 from pixguard_sim.detectors.ml import SklearnDetector, make_ml_detector
 from pixguard_sim.detectors.rule_threshold import RuleThresholdDetector
 
 __all__ = [
     "Detector",
+    "GraphSageDetector",
     "RuleThresholdDetector",
     "SklearnDetector",
     "make_ml_detector",
+    "torch_available",
 ]

@@ -17,6 +17,9 @@
 \renewcommand{\topfraction}{0.95}
 \renewcommand{\bottomfraction}{0.95}
 \renewcommand{\textfraction}{0.05}
+% Do not stretch vertical glue to fill a page that a float leaves short; this
+% removes underfull \vbox warnings at page boundaries without altering content.
+\raggedbottom
 
 % Smaller footnotes for industry/regulator URL citations.
 \let\oldfootnotesize\footnotesize
@@ -26,36 +29,73 @@
 \newcommand{\cmark}{\ding{51}}
 \newcommand{\xmark}{\ding{55}}
 
-% RESULTS MACROS: only numbers produced by code run in this environment.
-% Source: results/e1.json, results/e2.json, results/e4.json (seed 20260202).
+% RESULTS MACROS: every number below is produced by code in this repository and
+% read from results/{e1,e2,e3,e5,e6,e7}.json (seed 20260202). Prose never
+% hardcodes a number.
+% -- in-repo PIX layer (E1/E2): the scenario source and the spine --
 \newcommand{\Nevents}{40\,477}
 \newcommand{\Nfraud}{477}
 \newcommand{\Frate}{1.18\%}
 \newcommand{\Neval}{16\,191}
 \newcommand{\Nevalfraud}{191}
-% E1 batch metrics
 \newcommand{\rfF}{0.982}
 \newcommand{\rfPRAUC}{0.987}
 \newcommand{\gbF}{0.984}
 \newcommand{\gbPRAUC}{0.990}
-% E1 pre-deadline flag fraction at 1000 ms
-\newcommand{\rfPre}{0.974}
-\newcommand{\gbPreThousand}{0.000}
+\newcommand{\rfPre}{0.974}        % [0.940, 0.989]
+\newcommand{\rfPreLo}{0.940}
+\newcommand{\rfPreHi}{0.989}
+\newcommand{\gbPreThousand}{0.000} % [0.000, 0.020]
+\newcommand{\gbPreThousandHi}{0.020}
 \newcommand{\gbPreFiveK}{0.969}
 \newcommand{\lrPre}{0.948}
 \newcommand{\rulePre}{0.288}
-% E2 per-scenario recall, single-hop trained
+% E2 per-scenario recall, single-hop trained (Wilson 95\% CI)
 \newcommand{\eAto}{1.000}
 \newcommand{\eCoerc}{0.000}
+\newcommand{\eCoercHi}{0.077}
 \newcommand{\eMed}{0.000}
+\newcommand{\eMedHi}{0.092}
 \newcommand{\eMule}{0.404}
-% E3 independent generator
-\newcommand{\eThreeF}{0.915}
-\newcommand{\eThreePRAUC}{0.906}
+\newcommand{\eMuleLo}{0.282}
+\newcommand{\eMuleHi}{0.539}
+% -- real pix-fraud-br (E5): PIX-native external anchor + spine reproduced --
+\newcommand{\PfbN}{400\,000}
+\newcommand{\PfbFraud}{3\,075}
+\newcommand{\PfbRate}{0.77\%}
+\newcommand{\PfbXgbPRAUC}{0.938}   % [0.927, 0.946]
+\newcommand{\PfbXgbPRAUClo}{0.927}
+\newcommand{\PfbXgbPRAUChi}{0.946}
+\newcommand{\PfbRfPRAUC}{0.934}
+\newcommand{\PfbLrPRAUC}{0.844}
+\newcommand{\PfbPubPRAUC}{0.865}   % published XGBoost PR-AUC, HF card
+\newcommand{\PfbXgbF}{0.876}
+\newcommand{\PfbGbF}{0.873}
+\newcommand{\PfbXgbPre}{0.844}
+\newcommand{\PfbGbPre}{0.000}
+\newcommand{\PfbRulePRAUC}{0.014}
+% -- real Tide HI/LI (E3): cross-generator, rare-illicit, honest low numbers --
+\newcommand{\TideHiRate}{0.19\%}
+\newcommand{\TideLiRate}{0.10\%}
+\newcommand{\TideHiXgbPRAUC}{0.525} % [0.468, 0.583]
+\newcommand{\TideHiXgbPRAUClo}{0.468}
+\newcommand{\TideHiXgbPRAUChi}{0.583}
+\newcommand{\TideHiXgbR}{0.435}
+\newcommand{\TideLiXgbPRAUC}{0.523} % [0.448, 0.601]
+\newcommand{\TideLiXgbR}{0.461}
+\newcommand{\TideHiRulePRAUC}{0.036}
+% -- cross-generator transfer (E6): the non-circularity collapse --
+\newcommand{\TransInPfbPRAUC}{0.016}
+\newcommand{\TransPfbInPRAUC}{0.071}
+\newcommand{\TransPfbPfbF}{0.612}
+% -- GPU GraphSAGE baseline (E7) --
+\newcommand{\GnnInPRAUC}{0.482}
+\newcommand{\GnnTideHiPRAUC}{0.089}
+\newcommand{\GnnFitS}{3.1}
 
 \sloppy
 
-\title{\sysname: A Deadline-Aware Evaluation Harness for PIX\\ Fraud Detectors with Multi-Hop MED-2.0 and Coercion Scenarios}
+\title{\sysname: A Deadline-Aware Evaluation Harness for Pix\\ Fraud Detectors with Multi-Hop MED-2.0 and Coercion Scenarios}
 
 \author{Anonymized for double-blind review\inst{1}}
 
@@ -68,97 +108,129 @@
 \maketitle
 
 \begin{abstract}
-PIX, Brazil's instant-payment system, moves tens of billions of transactions a
-year, and the regulatory response has shifted from refunds to real-time
-blocking ``as soon as fraud is identified''. Yet no open benchmark scores fraud
-detectors against that pre-transaction decision window. We present \sysname, a
-detector- and generator-agnostic evaluation harness that scores any PIX fraud
-detector by the \emph{pre-deadline flag fraction}, the share of frauds flagged
-within a configurable decision deadline, alongside precision, recall, and
-PR-AUC. On synthetic, ground-truth-labeled events, two detectors with
-near-identical batch F1 (\textbf{\rfF} vs \textbf{\gbF}) are separated by the
-deadline metric: at a 1000\,ms deadline one flags \textbf{\rfPre} of frauds in
-time and the other \textbf{\gbPreThousand}. We further define two PIX-native
-scenarios absent from open prior work, multi-hop MED-2.0 refund tracing and
-coercion, and show single-hop-trained detectors collapse on them
+Pix, Brazil's instant-payment system, moved 63.8 billion transactions in 2024
+and is now the country's dominant payment method, and its regulation has
+shifted from refunds to real-time blocking ``as soon as fraud is identified''.
+Yet open fraud benchmarks score detectors in batch and ignore that
+pre-transaction decision window. We present \sysname, a detector- and
+generator-agnostic harness that scores any Pix fraud detector by the
+\emph{pre-deadline flag fraction}, the share of frauds flagged within a
+configurable decision deadline, alongside precision, recall, and PR-AUC with
+95\% confidence intervals. The metric is discriminative where batch metrics are
+blind: two detectors with statistically indistinguishable batch F1 are ranked
+oppositely, one flagging \textbf{\rfPre} of frauds within a 1000\,ms deadline
+and the other \textbf{\gbPreThousand}; the same inversion reappears on the
+released pix-fraud-br set (\textbf{\PfbXgbPre} vs \textbf{\PfbGbPre}). Validated
+across three independently-authored generators, the harness yields honest,
+sub-perfect numbers: best PR-AUC \textbf{\PfbXgbPRAUC} on pix-fraud-br but only
+\textbf{\TideHiXgbPRAUC} on the rare-illicit Tide data, and single-hop-trained
+detectors collapse on the multi-hop MED-2.0 and coercion scenarios
 (recall \textbf{\eCoerc} and \textbf{\eMed}). We release the harness,
-scenarios, and reproducible experiment scripts.
+scenarios, pinned datasets, and experiment scripts.
 \end{abstract}
 
 \section{Introduction}
 
-PIX, the instant-payment system launched by the Central Bank of Brazil (BCB) in
-2020, became the country's dominant payment method within a few years, moving
-tens of billions of transactions per year.\footnote{\href{https://www.bcb.gov.br/estabilidadefinanceira/estatisticaspix}{Estat\'isticas do Pix, Banco Central do Brasil, 2025}.}
-Its irrevocable, real-time settlement is exactly what makes fraud hard to
-undo: once funds settle, recovery depends on tracing them through downstream
-accounts before they are dispersed. The regulatory framework has accordingly
-moved from reactive refunds toward real-time prevention. Transfers to keys or
-accounts under founded suspicion of fraud must be blocked in real time under
-the Resolução BCB 142/2021 framework as amended by Resolução BCB
-501/2025,\footnote{\href{https://www.bcb.gov.br/estabilidadefinanceira/exibenormativo?tipo=Resolu\%C3\%A7\%C3\%A3o\%20BCB\&numero=501}{Resolução BCB n.~501, de 2025, Banco Central do Brasil}.}
-and the MED-2.0 refund mechanism, mandatory from 2026, traces funds across up
-to five subsequent account layers.\footnote{\href{https://www.bcb.gov.br/content/estabilidadefinanceira/pix/Guia_MED.pdf}{Guia do Mecanismo Especial de Devolução (MED), Banco Central do Brasil}.}
+Pix, the instant-payment system launched by the Central Bank of Brazil (BCB) in
+2020, became the country's dominant payment method within five years: it moved
+\textbf{63.8 billion transactions worth R\$ 26.9 trillion in
+2024},\footnote{\href{https://portal.febraban.org.br/noticia/4290/pt-br/}{Pix foi o meio de pagamento mais usado no Brasil em 2024, Febraban, abr.\ 2025}.}
+accounts for \textbf{54.7\% of all payment transactions} in Brazil (second half
+of 2025),\footnote{\href{https://istoedinheiro.com.br/pix-ja-representa-547-das-transacoes-financeiras-do-pais-mostra-bc}{Pix j\'a representa 54,7\% das transa\c{c}\~oes financeiras do pa\'is, mostra BC, IstoÉ Dinheiro, abr.\ 2026}.}
+and reaches roughly 170 million people through about 890 million registered
+keys.\footnote{\href{https://www.bcb.gov.br/estabilidadefinanceira/estatisticaspix}{Estat\'isticas do Pix, Banco Central do Brasil}.}
+A \emph{key} here is a DICT (Diret\'orio de Identificadores de Contas
+Transacionais) alias, the directory entry that resolves a phone number, tax id,
+or random token to a destination account. The same property that drives this
+adoption, irrevocable real-time settlement, is what turns a scam into an
+unrecoverable loss: once funds settle, recovery depends on tracing them through
+downstream accounts before they are dispersed.
+
+That risk is now material. Fraud refunds that could not be returned, because
+the receiving account was emptied or closed, reached \textbf{R\$ 4.94 billion in
+2024, up 70\% year over year}, across 3.45 million rejected refund
+requests.\footnote{\href{https://www.infomoney.com.br/minhas-financas/prejuizo-com-fraudes-no-pix-cresce-70-e-atinge-r-49-bi-em-2024-segundo-bc/}{Preju\'izo com fraudes no Pix cresce 70\% e atinge R\$ 4,9 bi em 2024, segundo o BC, InfoMoney, abr.\ 2025}.}
+A recent taxonomy of Pix fraud, built from a literature review and
+banking-sector interviews, classifies fifteen scam methodologies into four
+thematic groups (social engineering by authority/trust; by refund/benefit/
+urgency; attacks with physical interaction; and software- and
+remote-access attacks) and explicitly recommends building fraud simulators for
+controlled testing~\cite{pizzolato2025taxonomy}. The regulatory response has
+shifted from reactive refunds toward real-time prevention. Under the MED-2.0
+mechanism (Mecanismo Especial de Devolu\c{c}\~ao, the BCB special refund
+mechanism for fraud victims), governed by Resolu\c{c}\~ao BCB 493/2025 and
+mandatory for all Pix participants from \textbf{2 February
+2026},\footnote{\href{https://www.bcb.gov.br/content/estabilidadefinanceira/pix/MED/MED_2-0_Circuito_Pix-Dia_1.pdf}{Mecanismo Especial de Devolu\c{c}\~ao (MED 2.0), Banco Central do Brasil, 2026}.}
+institutions trace and block diverted funds across \textbf{up to five subsequent
+account layers} and freeze suspect amounts as a fraud alert propagates through
+the receiving chain; the BCB estimates this can raise the recovery rate from
+under 7\% to as much as 80\%.\footnote{\href{https://www.matera.com/br/blog/med-mecanismo-especial-de-devolucao/}{MED 2.0: guia do Mecanismo Especial de Devolu\c{c}\~ao para institui\c{c}\~oes, Matera, 2026}.}
 No regulation fixes a latency in seconds: the mandate is to block as soon as
 fraud is identified, so the decision deadline is a parameter, not a legal
 number.
 
-This raises a sharp question: how should we measure a PIX fraud detector when
+This raises a sharp question: how should we measure a Pix fraud detector when
 what the regulation demands is not just accuracy but a decision \emph{in time}?
 Conventional precision and recall are computed in batch, after the fact, and
 say nothing about whether a flag would have arrived before the irrevocable
-decision point. The closest open artifacts do not close this gap. General AML
-simulators are jurisdiction-agnostic and model laundering topology rather than
-consumer-scam dynamics; mobile-money simulators such as PaySim measure time in
-coarse hourly steps with no real-time deadline~\cite{lopezrojas2016paysim}. The
-only open PIX-native generator models just the first transfer to a single mule,
-with no multi-hop tracing, no MED, no coercion, and no latency
-metric.\footnote{\href{https://github.com/devdebdeb/pix-fraud-br}{pix-fraud-br: synthetic PIX Fraud BR dataset pipeline, 2026}.}
-The recent taxonomy of PIX fraud~\cite{pizzolato2025taxonomy} maps fifteen scam
-methodologies into four thematic groups and explicitly recommends building
-fraud simulators for controlled testing, validating the gap but providing no
-artifact.
+decision point. The closest open artifacts do not close this gap. General
+anti-money-laundering (AML) simulators model laundering topology rather than
+consumer-scam dynamics and are jurisdiction-agnostic; PaySim, a mobile-money
+simulator, measures time in coarse hourly steps with no real-time
+deadline~\cite{lopezrojas2016paysim}; Tide adds timestamped multi-hop laundering
+chains but no instant-payment semantics, no MED, and no latency
+metric~\cite{vandenbeukel2026tide}. The only open Pix-native generator,
+pix-fraud-br, models just the first transfer to a single mule and reports only
+batch metrics.\footnote{\href{https://huggingface.co/datasets/andremessina/pix-fraud-br}{pix-fraud-br: synthetic Pix fraud dataset (2{,}000{,}000 transactions), Hugging Face, 2026}.}
+None scores detectors against the pre-transaction decision window the
+regulation now centres on.
 
 We close this gap with \sysname, a thin, detector- and generator-agnostic
-evaluation harness that scores any PIX fraud detector by the
-\emph{pre-deadline flag fraction}, the fraction of frauds flagged within a
+evaluation harness that scores any Pix fraud detector by the
+\emph{pre-deadline flag fraction}, the fraction of true frauds flagged within a
 configurable pre-transaction decision deadline, in addition to conventional
-metrics. The payoff is immediate: on our synthetic but ground-truth-labeled
-events, two detectors with near-identical batch F1 (\rfF{} vs \gbF) are
-separated decisively by the deadline metric, one catching \rfPre{} of frauds
-within a 1000\,ms window and the other \gbPreThousand{}. \sysname{} consumes the
-output of existing generators rather than competing with them, and it ships
-reference implementations of two PIX-native scenarios that no open artifact
-covers.
+metrics reported with 95\% confidence intervals. The payoff is immediate and
+holds on real third-party data: two detectors with statistically
+indistinguishable batch F1 are separated decisively by the deadline metric,
+one catching \rfPre{} of frauds within a 1000\,ms window and the other
+\gbPreThousand{}, and the \emph{same} inversion reappears on the released
+pix-fraud-br set (\PfbXgbPre{} vs \PfbGbPre{}). \sysname{} consumes the output of
+existing generators rather than competing with them; we validate it across
+three independently-authored generators on identical detector inputs, where the
+honest numbers are imperfect and spread out, not a uniform 1.00.
 
 \noindent\textbf{Contributions.}
 \begin{itemize}[itemsep=1pt,topsep=2pt,leftmargin=*]
 \item \textbf{C1.} A deadline-aware evaluation metric, the pre-deadline flag
-fraction, tied to the PIX real-time-blocking intent, and evidence that it is
-discriminative where batch precision and recall are not (Sections~\ref{sec:method},~\ref{sec:results}).
-\item \textbf{C2.} Reference definitions of two PIX-native scenarios absent
+fraction, tied to the Pix real-time-blocking intent, with evidence on the
+in-repo layer and on the real pix-fraud-br set that it ranks detectors that
+batch precision and recall cannot (Sections~\ref{sec:method},~\ref{sec:results}).
+\item \textbf{C2.} Reference definitions of two Pix-native scenarios absent
 from open prior work, multi-hop MED-2.0 refund tracing and coercion, mapped onto
-the published taxonomy (Section~\ref{sec:method}).
-\item \textbf{C3.} A detector- and generator-agnostic harness that runs end to
-end on an independent generator and a released, reproducible, seed-pinned
-artifact (Sections~\ref{sec:results},~\ref{sec:concl}).
+the published taxonomy, with the honest finding that single-hop-trained
+detectors collapse on them (Sections~\ref{sec:method},~\ref{sec:results}).
+\item \textbf{C3.} A cross-generator, checksum-pinned evaluation on three
+independently-authored generators (in-repo, the released Tide HI/LI sets, and
+the released pix-fraud-br set), reproducing the prior-art baselines within
+tolerance and including a GPU graph-neural-network baseline, released as a
+seed-pinned artifact (Sections~\ref{sec:results},~\ref{sec:concl}).
 \end{itemize}
 
 \section{Related Work}\label{sec:related}
 
 \begin{table}[ht]
 \centering
-\caption{Capabilities of open fraud-data artifacts versus \sysname. PIX:
-instant-payment semantics; MH: multi-hop refund tracing; MED: MED-2.0 layers;
+\caption{Capabilities of open fraud-data artifacts versus \sysname. Pix:
+instant-payment semantics; MH: multi-hop tracing; MED: MED-2.0 layers;
 Coer.: coercion scenario; Dline: pre-transaction deadline metric.}
 \label{tab:related}
 \footnotesize
 \begin{tabular}{lcccccc}
 \toprule
-Artifact & PIX & MH & MED & Coer. & Dline & Open \\
+Artifact & Pix & MH & MED & Coer. & Dline & Open \\
 \midrule
-AMLSim / forks & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark \\
-Tide & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark \\
+AMLSim / IBM AML~\cite{altman2023aml} & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark \\
+Tide~\cite{vandenbeukel2026tide} & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark \\
 PaySim~\cite{lopezrojas2016paysim} & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
 pix-fraud-br & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark \\
 FCA/Aizle APP & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark \\
@@ -167,28 +239,28 @@ FCA/Aizle APP & \xmark & \xmark & \xmark & \cmark & \xmark & \xmark \\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:related} positions \sysname against the closest artifacts. IBM's
-AMLSim and its forks are multi-agent simulators with parameterized laundering
-typologies (fan-in/out, cycles); they generate rich multi-hop topology but no
-instant-payment semantics, no MED tracing, no coercion, and no latency
-metric.\footnote{\href{https://github.com/IBM/AMLSim}{IBM AMLSim, multi-agent anti-money-laundering simulator}.}
-Tide adds structural and temporal laundering dynamics, including multi-hop
-chains with inter-hop delays and timestamped ground-truth labels, which is the
-closest open analog to MED-2.0 chains; it remains jurisdiction-agnostic with no
-PIX, MED, coercion, or deadline metric, which is precisely why we adopt it as a
-base generator rather than reimplementing
-one.\footnote{\href{https://github.com/mntijn/Tide}{Tide: a customisable dataset generator for anti-money-laundering research}.}
-PaySim and its peers are agent-based mobile-money simulators whose time is
-measured in coarse hourly steps, with no real-time decision
-point~\cite{lopezrojas2016paysim}. The open PIX-native generator pix-fraud-br
-is a PaySim derivative that produces labeled PIX-framed transactions and
-validates four classifiers, but models only the first transfer to a single mule
-and reports only batch metrics, with no multi-hop, MED, DICT, coercion, or
-deadline.\footnote{\href{https://github.com/devdebdeb/pix-fraud-br}{pix-fraud-br: synthetic PIX Fraud BR dataset pipeline, 2026}.}
-The FCA/Aizle APP-fraud synthetic data is the nearest open-scam benchmark but
-is UK-specific, gated, and static, with no PIX semantics and no
-deadline metric.\footnote{\href{https://www.fca.org.uk/firms/innovation/digital-sandbox}{FCA Digital Sandbox, Authorised Push Payment fraud synthetic data}.}
-The PIX-fraud taxonomy~\cite{pizzolato2025taxonomy} is a paper, not an artifact,
+Table~\ref{tab:related} positions \sysname against the closest artifacts. The
+IBM ``Transactions for AML'' generator (AMLSim-based) produces rich multi-hop
+laundering topology calibrated to real transaction statistics, a valuable
+training ground for graph models, but carries no instant-payment semantics, no
+MED tracing, no coercion, and no latency metric~\cite{altman2023aml}. Tide
+contributes structural \emph{and} temporal laundering dynamics, including
+multi-hop chains with inter-hop delays and timestamped ground-truth labels,
+which is the closest open analog to MED-2.0 chains; it remains
+jurisdiction-agnostic with no Pix, MED, coercion, or deadline metric, which is
+precisely why we adopt it as one of our independent base generators rather than
+reimplementing one~\cite{vandenbeukel2026tide}. PaySim and its peers are
+agent-based mobile-money simulators whose time is measured in coarse hourly
+steps, with no real-time decision point~\cite{lopezrojas2016paysim}. The open
+Pix-native generator pix-fraud-br is a PaySim derivative that produces labeled
+Pix-framed transactions and validates four classifiers, a useful external
+anchor we reproduce here, but it models only the first transfer to a single
+mule and reports only batch metrics, with no multi-hop, MED, DICT, coercion, or
+deadline.\footnote{\href{https://huggingface.co/datasets/andremessina/pix-fraud-br}{pix-fraud-br, Hugging Face, 2026}.}
+The FCA/Aizle Authorised Push Payment (APP) fraud synthetic data is the nearest
+open-scam benchmark but is UK-specific, gated, and static, with no Pix semantics
+and no deadline metric.\footnote{\href{https://www.fca.org.uk/firms/innovation/digital-sandbox}{FCA Digital Sandbox, APP fraud synthetic data}.}
+The Pix-fraud taxonomy~\cite{pizzolato2025taxonomy} is a paper, not an artifact,
 and does not name mule-chain, MED, or DICT; our scenario mapping onto its four
 groups is documented as an explicit translation. \sysname{} is complementary:
 it does not generate yet another dataset but consumes existing generators and
@@ -197,18 +269,29 @@ Table~\ref{tab:related}.
 
 \section{Design and Method}\label{sec:method}
 
-\noindent\textbf{Event schema and synthetic generation.} Every generator maps
-into one normalized PIX-native event record carrying a relative timeline
-(initiation and irrevocable settlement), a MED-layer index, and PIX-native
-signals: DICT key, device change, new payee, remote-access session, and a
-coercion flag. A lightweight scale-free base interaction graph
-(Barabási--Albert under a fixed seed) fixes per-account device fingerprints,
-habitual payees, and candidate mule accounts, so legitimate activity is
-graph-consistent and fraud routes through plausible mule paths. All data is
-synthetic and ground-truth labeled; it is anchored to public statistics and
-authentic PIX/DICT/MED schema fields and is never presented as a real-world
-fraud rate. Determinism is built in: a fixed master seed reproduces the stream
-byte-for-byte, content-hashed in the run log.
+\noindent\textbf{Event schema.} Every generator maps into one normalized
+Pix-native event record carrying a relative timeline (initiation and
+irrevocable settlement), a MED-layer index, and Pix-native signals: DICT key,
+device change, new payee, payer velocity, remote-access session, and a coercion
+flag. Detectors see only the numeric feature columns and the timeline; the
+label, scenario, and identifiers are never exposed. Determinism is built in: a
+fixed master seed reproduces the in-repo stream byte-for-byte, content-hashed in
+the run log.
+
+\noindent\textbf{Three independent generators.} The harness scores detectors on
+three independently-authored sources through thin, checksum-verified adapters,
+so a number is never read off data the harness itself produced. (i)~An in-repo
+synthetic generator builds a scale-free base interaction graph
+(Barab\'asi--Albert under a fixed seed) and emits the four Pix-native scenarios;
+it is the only source that carries coercion and multi-hop MED-2.0, so it is the
+scenario source, not the credibility anchor. (ii)~The released Tide HI/LI AML
+datasets~\cite{vandenbeukel2026tide} (pinned by the provider's MD5 on Zenodo)
+supply real multi-hop laundering at extreme rarity (\TideHiRate{} and
+\TideLiRate{} illicit). (iii)~The released pix-fraud-br set of 2{,}000{,}000
+Pix-framed transactions supplies a Pix-native, single-hop generator whose
+prior-art baselines we reproduce. A \texttt{data\_manifest.json} pins each file
+by SHA-256, the provider MD5, and its source URL. All data is synthetic and
+ground-truth labeled; no number is a real-world fraud rate.
 
 \noindent\textbf{Scenarios.} \sysname{} instantiates four scenarios mapped onto
 the taxonomy's four groups~\cite{pizzolato2025taxonomy}: \emph{account-takeover}
@@ -230,106 +313,171 @@ detector both flags (score at or above the threshold) and decides within the
 deadline window measured from the event's own initiation. A fraud flagged only
 after the deadline is not actionable for pre-transaction blocking and does not
 count. The metric is reported over a sweep of deadlines because the regulation
-fixes none. The harness is generator-agnostic: any labeled stream in the schema,
-from the in-repo generator or an adapter over Tide, AMLSim, or pix-fraud-br,
-feeds the identical evaluation.
+fixes none. Every proportion (recall, pre-deadline fraction, per-scenario and
+per-layer recall) carries a Wilson 95\% confidence interval; F1 and PR-AUC carry
+a seed-pinned bootstrap 95\% interval over 1{,}000 resamples.
 
 \section{Evaluation}\label{sec:results}
 
-All results come from code run on a CPU-only machine with a fixed seed
-(20260202); no number is reported that the harness did not compute. The
-synthetic stream has \Nevents{} events with \Nfraud{} frauds (\Frate), split into
-a \Neval-event evaluation set with \Nevalfraud{} frauds. The released script
-reproduces every number below with one command.
+All results come from code run with a fixed seed (20260202); no number is
+reported that the harness did not compute, and the released scripts regenerate
+each one. The in-repo stream has \Nevents{} events with \Nfraud{} frauds
+(\Frate), split into a \Neval-event evaluation set with \Nevalfraud{} frauds.
+The Tide and pix-fraud-br runs use a label-stratified, seed-pinned subsample of
+\PfbN{} transactions each. Confidence intervals are reported as
+\emph{value}~[lo,~hi].
 
 \subsection{The deadline metric separates detectors batch P/R cannot}
 
 \begin{table}[ht]
 \centering
-\caption{Batch metrics and pre-deadline flag fraction at selected deadlines
-(E1). The fast random forest and the slow gradient-boosting model have
-near-identical batch F1 and PR-AUC but diverge sharply on the deadline metric.}
+\caption{Batch metrics and pre-deadline flag fraction at selected deadlines, on
+the in-repo layer (E1) and the released pix-fraud-br set (E5). On both, the slow
+gradient-boosting model matches the fast model in batch terms yet flags
+\gbPreThousand{} of frauds before a 1000\,ms deadline.}
 \label{tab:e1}
 \footnotesize
-\begin{tabular}{lcccccc}
+\begin{tabular}{llcccccc}
 \toprule
-Detector & Budget & F1 & PR-AUC & \multicolumn{3}{c}{Pre-deadline frac.\ @ deadline} \\
-\cmidrule(lr){5-7}
- & (ms) & & & 1000\,ms & 2000\,ms & 5000\,ms \\
+Source & Detector & Budget & F1 & PR-AUC & \multicolumn{3}{c}{Pre-deadline frac.\ @ deadline} \\
+\cmidrule(lr){6-8}
+ & & (ms) & & & 1000\,ms & 2000\,ms & 5000\,ms \\
 \midrule
-rule\_threshold & 20 & 0.356 & 0.534 & \rulePre & \rulePre & \rulePre \\
-lr\_fast & 50 & 0.965 & 0.976 & \lrPre & \lrPre & \lrPre \\
-rf\_fast & 50 & \rfF & \rfPRAUC & \rfPre & \rfPre & \rfPre \\
-gb\_slow & 5000 & \gbF & \gbPRAUC & \gbPreThousand & \gbPreThousand & \gbPreFiveK \\
+in-repo & rule\_threshold & 20 & 0.356 & 0.534 & \rulePre & \rulePre & \rulePre \\
+in-repo & lr\_fast & 50 & 0.965 & 0.976 & \lrPre & \lrPre & \lrPre \\
+in-repo & rf\_fast & 50 & \rfF & \rfPRAUC & \rfPre & \rfPre & \rfPre \\
+in-repo & gb\_slow & 5000 & \gbF & \gbPRAUC & \gbPreThousand & \gbPreThousand & \gbPreFiveK \\
+\midrule
+pix-fraud-br & rf\_fast & 50 & \PfbXgbF & \PfbRfPRAUC & 0.828 & 0.828 & 0.828 \\
+pix-fraud-br & xgb\_fast & 50 & \PfbXgbF & \PfbXgbPRAUC & \PfbXgbPre & \PfbXgbPre & \PfbXgbPre \\
+pix-fraud-br & gb\_slow & 5000 & \PfbGbF & 0.930 & \PfbGbPre & \PfbGbPre & 0.830 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The headline result is \textbf{\rfPre{} versus \gbPreThousand}. As
-Table~\ref{tab:e1} and Figure~\ref{fig:results}(a) show, \texttt{rf\_fast} and
-\texttt{gb\_slow} are statistically indistinguishable in batch terms (F1 \rfF{}
-vs \gbF; PR-AUC \rfPRAUC{} vs \gbPRAUC), yet the deadline metric separates them
-completely: at a 1000\,ms deadline \texttt{rf\_fast} flags \rfPre{} of frauds in
-time while \texttt{gb\_slow}, whose 5000\,ms inference budget exceeds the
-window, flags \gbPreThousand{}, only recovering to \gbPreFiveK{} once the
-deadline reaches its budget. Conventional batch P/R is blind to this; the
-deadline metric makes it explicit, confirming that the metric is discriminative
-and not redundant (C1).
+Table~\ref{tab:e1} and Figure~\ref{fig:results}(a) show, on the in-repo layer
+\texttt{rf\_fast} and \texttt{gb\_slow} are statistically indistinguishable in
+batch terms (F1 \rfF{} vs \gbF; PR-AUC \rfPRAUC{} vs \gbPRAUC), yet the deadline
+metric separates them completely: at a 1000\,ms deadline \texttt{rf\_fast} flags
+\rfPre{}~[\rfPreLo,~\rfPreHi] of frauds in time while \texttt{gb\_slow}, whose
+5000\,ms inference budget exceeds the window, flags
+\gbPreThousand{}~[\gbPreThousand,~\gbPreThousandHi], recovering to \gbPreFiveK{}
+only once the deadline reaches its budget. This is a deterministic latency
+property: a detector cannot decide before its own budget, so batch P/R is
+structurally blind to it. Crucially, the \emph{same} inversion appears on the
+real pix-fraud-br set, where \texttt{xgb\_fast} and \texttt{gb\_slow} have
+near-equal batch F1 (\PfbXgbF{} vs \PfbGbF) but pre-deadline fractions of
+\PfbXgbPre{} and \PfbGbPre{} at 1000\,ms. The metric is discriminative and not
+redundant, on synthetic and on real third-party data alike (C1).
 
 \subsection{Single-hop-trained detectors collapse on the new scenarios}
 
-\begin{figure}[ht]
+\begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{fig_results.pdf}
-\caption{Results: (a)~pre-deadline flag fraction vs deadline (E1), the fast
+\caption{Results: (a)~pre-deadline flag fraction vs deadline (E1), fast
 detectors plateau high while the slow one stays at zero until its budget;
-(b)~per-scenario recall of a single-hop-trained detector (E2), collapsing on
-coercion and multi-hop MED.}
+(b)~per-scenario recall of a single-hop-trained detector with Wilson 95\% CIs
+(E2), collapsing on coercion and multi-hop MED; (c)~best PR-AUC with bootstrap
+95\% CIs across the three generators (E1/E3/E5), honest and spread out.}
 \label{fig:results}
 \end{figure}
 
-Detectors trained only on the single-hop case (legitimate traffic plus
-account-takeover), the modeling scope of the open PIX generator, keep perfect
-recall on that scenario (\eAto) but collapse on the PIX-native scenarios they
-never saw: recall \textbf{\eCoerc} on coercion, \textbf{\eMed} on multi-hop
-MED-2.0 refunds (zero at every one of the five layers), and only \eMule{} on
-mule chains (Figure~\ref{fig:results}(b)). This quantifies why the two scenarios
-absent from open prior work matter: a detector tuned on the single-transfer
-case is structurally unable to catch them (C2).
+Detectors trained only on the single-hop case, legitimate traffic plus
+account-takeover, the modeling scope of the open Pix generator, keep perfect
+recall on that scenario (\eAto) yet collapse on the Pix-native scenarios they
+never saw: recall \textbf{\eCoerc}~[\eCoerc,~\eCoercHi] on coercion,
+\textbf{\eMed}~[\eMed,~\eMedHi] on multi-hop MED-2.0 refunds (zero at every one
+of the five layers), and only \eMule{}~[\eMuleLo,~\eMuleHi] on mule chains
+(Figure~\ref{fig:results}(b)). This quantifies why the two scenarios absent from
+open prior work matter: a detector tuned on the single-transfer case is
+structurally unable to catch them (C2). We report these low numbers as the
+finding, not as a defect, since the unseen Pix-native scenarios are precisely
+the hard ones the regulation now targets.
 
-\subsection{Generator-agnosticism and determinism}
+\subsection{Cross-generator credibility on real released datasets}
 
-Running the identical harness and metric on an independent, differently-shaped
-generator (a Tide-shaped stream with random counterparties and exponential
-inter-arrivals, adapted into the schema) produces the same report with no code
-change: a random forest reaches F1 \eThreeF{} and PR-AUC \eThreePRAUC, while the
-rule baseline stays low, exactly the pattern seen on the in-repo generator. This
-demonstrates generator-agnosticism and breaks the circularity threat of
-evaluating only on self-authored data (C3). Re-running the generator yields an
-identical content hash, confirming byte-level determinism.
+\begin{table}[ht]
+\centering
+\caption{Cross-generator results on three independently-authored generators
+(E3, E5). PR-AUC carries a bootstrap 95\% CI; recall a Wilson 95\% CI. Numbers
+are honestly sub-perfect and spread by illicit ratio; the rule floor is near
+useless under heavy imbalance.}
+\label{tab:cross}
+\footnotesize
+\begin{tabular}{llccc}
+\toprule
+Generator (illicit) & Detector & F1 & PR-AUC [95\% CI] & Recall [95\% CI] \\
+\midrule
+pix-fraud-br (\PfbRate) & xgb\_fast & \PfbXgbF & \PfbXgbPRAUC~[\PfbXgbPRAUClo,~\PfbXgbPRAUChi] & 0.844 [0.823,\,0.863] \\
+pix-fraud-br (\PfbRate) & rule\_threshold & 0.015 & \PfbRulePRAUC~[0.013,\,0.015] & 0.927 [0.911,\,0.940] \\
+Tide-HI (\TideHiRate) & xgb\_fast & 0.606 & \TideHiXgbPRAUC~[\TideHiXgbPRAUClo,~\TideHiXgbPRAUChi] & \TideHiXgbR{} [0.380,\,0.492] \\
+Tide-LI (\TideLiRate) & xgb\_fast & 0.631 & \TideLiXgbPRAUC~[0.448,\,0.601] & \TideLiXgbR{} [0.387,\,0.537] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The harness and the deadline metric transfer to all three generators with no
+code change, and the numbers behave exactly as a credible benchmark should:
+they are well below 1.00 and they spread with the difficulty of the regime
+(Table~\ref{tab:cross}, Figure~\ref{fig:results}(c)). On the Pix-native
+pix-fraud-br set, the strongest tabular detector reaches PR-AUC
+\PfbXgbPRAUC~[\PfbXgbPRAUClo,~\PfbXgbPRAUChi], reproducing the dataset's
+published XGBoost baseline (PR-AUC \PfbPubPRAUC{} on its own validation
+sample)\footnote{\href{https://huggingface.co/datasets/andremessina/pix-fraud-br}{pix-fraud-br model card, Hugging Face, 2026}.}
+within tolerance and confirming the harness does not inflate scores. On the
+rare-illicit Tide data the same detectors drop sharply, to PR-AUC
+\TideHiXgbPRAUC{} on Tide-HI and \TideLiXgbPRAUC{} on Tide-LI, with recall near
+0.45, while the rule floor is near useless (PR-AUC \TideHiRulePRAUC{}). A
+cross-generator transfer test (E6) makes the non-circularity explicit: a random
+forest trained on one generator and tested on another collapses to PR-AUC
+\TransInPfbPRAUC{} (in-repo to pix-fraud-br) and \TransPfbInPRAUC{}
+(pix-fraud-br to in-repo), versus \TransPfbPfbF{} F1 in-distribution. No detector
+trivially reaches 1.00 anywhere (C3).
+
+\subsection{Baselines, ablations, and a GPU graph baseline}
+
+The four tabular baselines (logistic regression, random forest, gradient
+boosting, XGBoost) and the rule floor are scored on identical inputs throughout;
+the metric ablation is the rank inversion itself, where the deadline-aware
+ranking contradicts the batch ranking for two models with equal batch F1, and
+the generator ablation is the cross-generator spread above. As a graph-aware
+baseline for the multi-hop axis, we trained a two-layer GraphSAGE detector on
+the available GPU; it is an honest, imperfect baseline, reaching PR-AUC only
+\GnnInPRAUC{} on the in-repo layer and \GnnTideHiPRAUC{} on the sparse Tide-HI
+graph, below the tabular models, while fitting in about \GnnFitS{}\,s. Per-event
+inference latency is sub-millisecond for every detector, so the deadline metric
+is dominated by the configured inference budget rather than scoring overhead.
+Scaling the GNN with neighbour sampling to production-volume graphs is left to
+future work.
 
 \section{Limitations and Conclusion}\label{sec:concl}
 
-\noindent\textbf{Limitations.} All reported numbers are on synthetic,
-ground-truth-labeled data, so they validate the harness and the metric's
-discriminative power, not real-world fraud prevalence; real-data validation is a
-ready-to-run pending item gated only on access to a released labeled PIX set.
-The decision latency is modeled per detector rather than measured on production
-hardware, and the scenario-to-taxonomy mapping is an explicit translation, since
-the taxonomy does not name these scenarios. The deadline is reported over a
-range because no regulation fixes a latency.
+\noindent\textbf{Limitations.} Real Pix transaction data is private, so every
+input here is synthetic; the numbers validate the harness and the metric's
+discriminative power, not a real-world fraud prevalence. The two Pix-native
+scenarios are reference definitions mapped onto a taxonomy that does not name
+them, an explicit translation rather than a claim. The deadline is reported over
+a range because no regulation fixes a latency, and the graph baseline is a
+single representative architecture; a large-scale graph study on
+production-volume traffic is left to future work.
 
 \noindent\textbf{Conclusion.} We opened with the question of how to measure a
-PIX fraud detector when the regulation demands a decision in time, not just
+Pix fraud detector when the regulation demands a decision in time, not just
 accuracy. \sysname{} answers it: the pre-deadline flag fraction separates two
 detectors that batch precision and recall rank as equivalent (\rfPre{} vs
-\gbPreThousand{} at 1000\,ms), and it exposes the collapse of single-hop-trained
+\gbPreThousand{} at 1000\,ms on the in-repo layer, \PfbXgbPre{} vs \PfbGbPre{} on
+the real pix-fraud-br set), it exposes the collapse of single-hop-trained
 detectors on the multi-hop MED-2.0 and coercion scenarios that no open artifact
-covered. By scoring detectors against the real-time-blocking intent rather than
-against batch metrics alone, \sysname{} gives researchers a reproducible
-instrument for PIX fraud-prevention compliance, and we release it, its
-scenarios, and its experiments as an open
-artifact.\footnote{\href{https://anonymous.4open.science/}{Artifact anonymized for double-blind review}.}
+covered, and across three independently-authored generators it yields honest,
+sub-perfect numbers (best PR-AUC \PfbXgbPRAUC{} on pix-fraud-br, only
+\TideHiXgbPRAUC{} on rare-illicit Tide). By scoring detectors against the
+real-time-blocking intent that the MED-2.0 mandate of February 2026 now
+enforces, rather than against batch metrics alone, \sysname{} gives researchers
+a reproducible instrument for Pix fraud-prevention compliance, released with its
+scenarios, pinned datasets, and
+experiments.\footnote{\href{https://anonymous.4open.science/}{Artifact anonymized for double-blind review}.}
 
 \bibliographystyle{sbc}
 \bibliography{paper}

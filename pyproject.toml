@@ -22,6 +22,16 @@ dev = [
     "pytest>=8.0,<9",
     "ruff>=0.5,<0.16",
 ]
+# Cross-generator extra: obtain and score the released third-party datasets.
+datasets = [
+    "datasets>=2.18,<5",
+    "pyarrow>=14",
+    "xgboost>=2.0,<4",
+]
+# GPU GraphSAGE baseline extra. Install the torch build matching your CUDA.
+gnn = [
+    "torch>=2.2",
+]
 # Build-only extra to regenerate the paper figure; not a runtime dependency.
 figures = [
     "matplotlib>=3.7,<3.11",

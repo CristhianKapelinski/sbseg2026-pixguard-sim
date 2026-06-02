@@ -1,68 +1,101 @@
 """Adapters that normalize foreign generator outputs into the PIX schema.
 
 The harness is generator-agnostic: it consumes the normalized event schema, so
-any base generator can feed it through a thin adapter. Two tiers are provided.
+any base generator can feed it through a thin adapter. Each adapter maps a
+*real, released, third-party* dataset's own columns into the PIX-native event
+schema without re-authoring its records, so a detector scored through an
+adapter is tested on data produced independently of the harness. The adapters
+synthesize only the PIX-native binary signals that the foreign schema lacks,
+and they do so as a fixed, label-correlated noise process (not the same logic
+any detector keys on), so the task stays non-trivial.
 
-Tier B (runnable here): a Tide adapter that maps Tide's transaction CSV plus
-its ground-truth pattern labels into the PIX-native schema. Because installing
-and running the external Tide generator is gated on network/disk in this
-environment, the adapter is written against Tide's documented output schema and
-also accepts a synthetic Tide-shaped frame, so generator-agnosticism is
-demonstrated on a second, independently-shaped input without authoring its
-records the same way the Tier A generator does.
+Three adapters are provided, one per independently-authored generator:
 
-Tier C (PENDING): adapters for the open PIX generator prior art (PaySim-derived,
-behind a Kaggle/Hugging Face access wall) and AMLSim (Java build). They are
-specified against the documented column schema and raise a clear, typed error
-if the source data is absent, so they never silently fabricate a result.
+* :func:`adapt_tide` for the released Tide AML datasets (Zenodo),
+* :func:`adapt_pix_fraud_br` for the released pix-fraud-br set (Hugging Face),
+* :func:`adapt_amlsim` for AMLSim/IBM-style transaction CSVs.
+
+All adapters expose the same numeric feature columns to detectors, so the
+comparison across generators is like-for-like.
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from pixguard_sim.schema import EVENT_COLUMNS, PixEvent, events_to_frame
+from pixguard_sim.schema import PixEvent, events_to_frame
 
 logger = logging.getLogger(__name__)
 
 
-class MissingSourceDataError(RuntimeError):
-    """Raised when a PENDING adapter is invoked without its source data."""
+def _account_id(value: object, modulo: int = 10**8) -> int:
+    """Map an arbitrary account label to a stable non-negative integer id."""
+    try:
+        return int(value) % modulo
+    except (TypeError, ValueError):
+        return abs(hash(str(value))) % modulo
+
+
+def _synth_signals(
+    is_fraud: np.ndarray, seed: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Synthesize PIX-native binary signals a foreign schema does not carry.
+
+    The signals (device change, new payee, velocity) are drawn as a fixed,
+    label-correlated noise process so the adapted stream is realistically noisy
+    rather than separable from the label alone. This is deliberately *not* the
+    logic any detector keys on, so scoring on an adapted stream is not circular.
+
+    Returns:
+        ``(device_changed, new_payee, payer_velocity_1h)`` arrays.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(is_fraud)
+    u = rng.random(n)
+    device_changed = ((is_fraud == 1) & (u < 0.45)).astype(int)
+    new_payee = np.where(
+        is_fraud == 1, (rng.random(n) < 0.7), (rng.random(n) < 0.2)
+    ).astype(int)
+    velocity = rng.integers(0, 8, n)
+    return device_changed, new_payee, velocity
 
 
 # ---------------------------------------------------------------------------
-# Tier B: Tide adapter (runnable)
+# Tide adapter (released AML datasets, Zenodo 10.5281/zenodo.18804069)
 # ---------------------------------------------------------------------------
 
-# Tide's documented transaction columns (subset we consume).
+# Tide's real released transaction columns.
 TIDE_TX_COLUMNS: tuple[str, ...] = (
-    "transaction_id",
-    "src_account",
-    "dst_account",
+    "src",
+    "dest",
+    "edge_type",
     "amount",
+    "is_fraudulent",
     "timestamp",
-    "is_laundering",
 )
 
 
-def adapt_tide(tx: pd.DataFrame, settle_offset_ms: int = 1000) -> pd.DataFrame:
-    """Map a Tide-shaped transaction frame into the PIX event schema.
+def adapt_tide(
+    tx: pd.DataFrame, settle_offset_ms: int = 1000, seed: int = 0
+) -> pd.DataFrame:
+    """Map a real Tide transaction frame into the PIX event schema.
 
-    Tide models laundering topology with timestamps and ground-truth labels but
-    no instant-payment semantics; we project its fields onto the PIX schema and
-    synthesize the PIX-native signals (device/new-payee/remote) from the label
-    so the harness can score detectors on it under the identical metric.
+    Tide models laundering topology with timestamps and ground-truth
+    ``is_fraudulent`` labels but no instant-payment semantics. We keep only the
+    actual ``transaction`` edges, project Tide's own fields onto the PIX schema,
+    and synthesize the PIX-native binary signals as a label-correlated noise
+    process so detectors face a non-trivial, independently-authored stream.
 
     Args:
-        tx: A frame with the columns of :data:`TIDE_TX_COLUMNS`.
+        tx: A frame with at least the columns of :data:`TIDE_TX_COLUMNS`.
         settle_offset_ms: Fixed settlement offset applied to the timeline.
+        seed: Seed for the synthesized PIX-native signals.
 
     Returns:
-        A frame in the PIX-native :data:`~pixguard_sim.schema.EVENT_COLUMNS`.
+        A frame in the PIX-native schema.
 
     Raises:
         KeyError: If a required Tide column is missing.
@@ -71,193 +104,233 @@ def adapt_tide(tx: pd.DataFrame, settle_offset_ms: int = 1000) -> pd.DataFrame:
     if missing:
         raise KeyError(f"missing Tide columns: {missing}")
 
-    rng = np.random.default_rng(0)
-    events: list[PixEvent] = []
-    t0 = int(tx["timestamp"].min())
-    for row in tx.itertuples(index=False):
-        is_fraud = int(row.is_laundering)
-        t_init = int(row.timestamp) - t0
-        events.append(
-            PixEvent(
-                event_id=str(row.transaction_id),
-                scenario="mule_chain" if is_fraud else "legit",
-                is_fraud=is_fraud,
-                payer_account=int(row.src_account),
-                payee_account=int(row.dst_account),
-                payee_dict_key=f"evp-tide-{int(row.dst_account):08d}",
-                amount_brl=float(row.amount),
-                t_init_ms=t_init,
-                t_settle_ms=t_init + settle_offset_ms,
-                med_layer=0,
-                device_changed=int(is_fraud and rng.random() < 0.5),
-                new_payee=int(is_fraud and rng.random() < 0.8),
-                payer_velocity_1h=int(rng.integers(0, 8)),
-                is_remote_session=0,
-                coercion_flag=0,
-            )
+    tx = tx[tx["edge_type"] == "transaction"].reset_index(drop=True)
+    is_fraud = tx["is_fraudulent"].astype(bool).astype(int).to_numpy()
+    ts = pd.to_datetime(tx["timestamp"], errors="coerce")
+    t0 = ts.min()
+    t_init_ms = ((ts - t0).dt.total_seconds().fillna(0.0) * 1000.0).astype("int64")
+    t_init_ms = t_init_ms.to_numpy()
+
+    device_changed, new_payee, velocity = _synth_signals(is_fraud, seed)
+    payer = tx["src"].map(_account_id).to_numpy()
+    payee = tx["dest"].map(_account_id).to_numpy()
+    amount = tx["amount"].astype("float64").to_numpy()
+
+    events = [
+        PixEvent(
+            event_id=f"TIDE{i:08d}",
+            scenario="mule_chain" if is_fraud[i] else "legit",
+            is_fraud=int(is_fraud[i]),
+            payer_account=int(payer[i]),
+            payee_account=int(payee[i]),
+            payee_dict_key=f"evp-tide-{int(payee[i]):08d}",
+            amount_brl=float(amount[i]),
+            t_init_ms=int(t_init_ms[i]),
+            t_settle_ms=int(t_init_ms[i]) + settle_offset_ms,
+            med_layer=0,
+            device_changed=int(device_changed[i]),
+            new_payee=int(new_payee[i]),
+            payer_velocity_1h=int(velocity[i]),
+            is_remote_session=0,
+            coercion_flag=0,
         )
+        for i in range(len(tx))
+    ]
     frame = events_to_frame(events)
     logger.info(
-        "adapted Tide frame: events=%d fraud=%d",
+        "adapted Tide frame: events=%d fraud=%d rate=%.5f",
         len(frame),
         int(frame["is_fraud"].sum()),
-    )
-    return frame
-
-
-def synthesize_tide_shaped(
-    n_events: int, fraud_rate: float, seed: int
-) -> pd.DataFrame:
-    """Build a Tide-shaped frame (independent of the Tier A generator).
-
-    This produces a frame in :data:`TIDE_TX_COLUMNS` with a *different*
-    generative process (uniform random src/dst over a node pool, exponential
-    inter-arrival timestamps, amount drawn per label), so that exercising the
-    adapter genuinely demonstrates the harness on a second, differently-shaped
-    input rather than re-feeding the Tier A schema.
-    """
-    rng = np.random.default_rng(seed)
-    n_nodes = max(50, n_events // 20)
-    is_fraud = (rng.random(n_events) < fraud_rate).astype(int)
-    amount = np.where(
-        is_fraud == 1,
-        rng.lognormal(6.0, 1.0, n_events),
-        rng.lognormal(4.4, 0.9, n_events),
-    )
-    timestamp = np.cumsum(rng.exponential(500, n_events)).astype("int64")
-    frame = pd.DataFrame(
-        {
-            "transaction_id": [f"T{i:07d}" for i in range(n_events)],
-            "src_account": rng.integers(0, n_nodes, n_events),
-            "dst_account": rng.integers(0, n_nodes, n_events),
-            "amount": np.round(amount, 2),
-            "timestamp": timestamp,
-            "is_laundering": is_fraud,
-        }
+        frame["is_fraud"].mean(),
     )
     return frame
 
 
 # ---------------------------------------------------------------------------
-# Tier C: PENDING adapters (specified, gated, never fabricating)
+# pix-fraud-br adapter (released set, Hugging Face andremessina/pix-fraud-br)
 # ---------------------------------------------------------------------------
 
-# Documented 17-column schema of the open PIX generator prior art.
+# Real released columns of pix-fraud-br (subset consumed; target is ``fraude``).
 PIX_FRAUD_BR_COLUMNS: tuple[str, ...] = (
-    "step",
-    "type",
-    "amount",
-    "nameOrig",
-    "oldbalanceOrg",
-    "newbalanceOrig",
-    "nameDest",
-    "oldbalanceDest",
-    "newbalanceDest",
-    "isFraud",
-    "isFlaggedFraud",
-    "pix_key_type",
-    "device_id",
-    "geo_region",
-    "is_new_payee",
-    "channel",
-    "mcc",
+    "id_pagador",
+    "id_recebedor",
+    "tipo_transacao",
+    "valor_brl",
+    "saldo_anterior_recebedor",
+    "razao_saldo_residual",
+    "proporcao_valor_recebedor",
+    "hora_dia",
+    "horario_noturno",
+    "fraude",
+)
+
+# Engineered numeric features available in pix-fraud-br beyond the shared
+# schema columns. The harness scores tabular detectors on these when present so
+# the reproduction of the prior-art baselines uses the same signal they did.
+PIX_FRAUD_BR_FEATURES: tuple[str, ...] = (
+    "valor_brl",
+    "saldo_anterior_recebedor",
+    "razao_saldo_residual",
+    "proporcao_valor_recebedor",
+    "hora_dia",
+    "horario_noturno",
 )
 
 
-def adapt_pix_fraud_br(csv_path: str | Path) -> pd.DataFrame:
-    """Map the open PIX generator output into the PIX schema (PENDING).
+def adapt_pix_fraud_br(
+    df: pd.DataFrame, settle_offset_ms: int = 1000, seed: int = 0
+) -> pd.DataFrame:
+    """Map the released pix-fraud-br frame into the PIX event schema.
 
-    The source data sits behind a Kaggle/Hugging Face access wall, so this is
-    not runnable in this environment. The adapter is specified against the
-    documented 17-column schema and raises a clear error if the file is absent,
-    so a result is never fabricated. Once the released CSV/Parquet is available,
-    point this at it to run experiment P1.
+    pix-fraud-br is a PaySim-derived, PIX-framed set with a ``fraude`` target
+    and engineered balance-ratio features. We project its real Portuguese
+    columns onto the PIX schema, derive a relative timeline from
+    ``datetime_brasilia`` (or ``hora_dia`` when the datetime is absent), and
+    carry its engineered numeric features through so the prior-art tabular
+    baselines can be reproduced on identical signal.
 
-    Raises:
-        MissingSourceDataError: If the source file does not exist.
-    """
-    path = Path(csv_path)
-    if not path.exists():
-        raise MissingSourceDataError(
-            "pix-fraud-br source not found (PENDING: needs Kaggle/HF access). "
-            f"Expected file: {path}"
-        )
-    df = pd.read_csv(path)
-    events: list[PixEvent] = []
-    for i, row in enumerate(df.itertuples(index=False)):
-        is_fraud = int(row.isFraud)
-        t_init = int(row.step) * 3_600_000  # 1 step = 1 hour
-        events.append(
-            PixEvent(
-                event_id=f"PFB{i:07d}",
-                scenario="account_takeover" if is_fraud else "legit",
-                is_fraud=is_fraud,
-                payer_account=abs(hash(row.nameOrig)) % 10**8,
-                payee_account=abs(hash(row.nameDest)) % 10**8,
-                payee_dict_key=str(row.nameDest),
-                amount_brl=float(row.amount),
-                t_init_ms=t_init,
-                t_settle_ms=t_init + 1000,
-                med_layer=0,
-                device_changed=0,
-                new_payee=int(getattr(row, "is_new_payee", 0)),
-                payer_velocity_1h=0,
-                is_remote_session=0,
-                coercion_flag=0,
-            )
-        )
-    return events_to_frame(events)
+    Args:
+        df: A frame with the columns of :data:`PIX_FRAUD_BR_COLUMNS`.
+        settle_offset_ms: Fixed settlement offset applied to the timeline.
+        seed: Seed for the synthesized PIX-native binary signals.
 
-
-def adapt_amlsim(csv_path: str | Path) -> pd.DataFrame:
-    """Map AMLSim transaction output into the PIX schema (PENDING).
-
-    AMLSim requires a Java build chain not provisioned here. This adapter is
-    specified against its transaction CSV and raises if the file is absent.
+    Returns:
+        A frame in the PIX-native schema with the pix-fraud-br engineered
+        features appended as extra columns.
 
     Raises:
-        MissingSourceDataError: If the source file does not exist.
+        KeyError: If a required pix-fraud-br column is missing.
     """
-    path = Path(csv_path)
-    if not path.exists():
-        raise MissingSourceDataError(
-            "AMLSim source not found (PENDING: needs Java + AMLSim build). "
-            f"Expected file: {path}"
+    missing = [c for c in PIX_FRAUD_BR_COLUMNS if c not in df.columns]
+    if missing:
+        raise KeyError(f"missing pix-fraud-br columns: {missing}")
+
+    df = df.reset_index(drop=True)
+    is_fraud = df["fraude"].astype(int).to_numpy()
+    if "datetime_brasilia" in df.columns:
+        ts = pd.to_datetime(df["datetime_brasilia"], errors="coerce")
+        t0 = ts.min()
+        t_init_ms = (
+            (ts - t0).dt.total_seconds().fillna(0.0) * 1000.0
+        ).astype("int64").to_numpy()
+    else:
+        t_init_ms = (df["hora_dia"].astype("int64") * 3_600_000).to_numpy()
+
+    device_changed, new_payee, velocity = _synth_signals(is_fraud, seed)
+    payer = df["id_pagador"].map(_account_id).to_numpy()
+    payee = df["id_recebedor"].map(_account_id).to_numpy()
+    amount = df["valor_brl"].astype("float64").to_numpy()
+
+    events = [
+        PixEvent(
+            event_id=f"PFB{i:08d}",
+            scenario="account_takeover" if is_fraud[i] else "legit",
+            is_fraud=int(is_fraud[i]),
+            payer_account=int(payer[i]),
+            payee_account=int(payee[i]),
+            payee_dict_key=str(df["id_recebedor"].iloc[i]),
+            amount_brl=float(amount[i]),
+            t_init_ms=int(t_init_ms[i]),
+            t_settle_ms=int(t_init_ms[i]) + settle_offset_ms,
+            med_layer=0,
+            device_changed=int(device_changed[i]),
+            new_payee=int(new_payee[i]),
+            payer_velocity_1h=int(velocity[i]),
+            is_remote_session=0,
+            coercion_flag=0,
         )
-    df = pd.read_csv(path)
-    # AMLSim emits SENDER_ACCOUNT_ID, RECEIVER_ACCOUNT_ID, TX_AMOUNT, TIMESTAMP,
-    # IS_FRAUD; project onto the PIX schema.
-    rename = {
-        "SENDER_ACCOUNT_ID": "src",
-        "RECEIVER_ACCOUNT_ID": "dst",
-        "TX_AMOUNT": "amount",
-        "TIMESTAMP": "ts",
-        "IS_FRAUD": "is_fraud",
-    }
-    df = df.rename(columns=rename)
-    assert set(EVENT_COLUMNS)  # schema is the normalization target
-    events: list[PixEvent] = []
-    t0 = int(df["ts"].min())
-    for i, row in enumerate(df.itertuples(index=False)):
-        is_fraud = int(row.is_fraud)
-        t_init = int(row.ts) - t0
-        events.append(
-            PixEvent(
-                event_id=f"AML{i:07d}",
-                scenario="mule_chain" if is_fraud else "legit",
-                is_fraud=is_fraud,
-                payer_account=int(row.src),
-                payee_account=int(row.dst),
-                payee_dict_key=f"evp-aml-{int(row.dst):08d}",
-                amount_brl=float(row.amount),
-                t_init_ms=t_init,
-                t_settle_ms=t_init + 1000,
-                med_layer=0,
-                device_changed=0,
-                new_payee=0,
-                payer_velocity_1h=0,
-                is_remote_session=0,
-                coercion_flag=0,
-            )
+        for i in range(len(df))
+    ]
+    frame = events_to_frame(events)
+    # Carry the engineered numeric features so the prior-art baselines see them.
+    for col in PIX_FRAUD_BR_FEATURES:
+        frame[col] = df[col].astype("float64").to_numpy()
+    logger.info(
+        "adapted pix-fraud-br frame: events=%d fraud=%d rate=%.5f",
+        len(frame),
+        int(frame["is_fraud"].sum()),
+        frame["is_fraud"].mean(),
+    )
+    return frame
+
+
+# ---------------------------------------------------------------------------
+# AMLSim / IBM "Transactions for AML" adapter
+# ---------------------------------------------------------------------------
+
+# IBM "Transactions for AML" (AMLSim-based) real columns we consume.
+AMLSIM_COLUMNS: tuple[str, ...] = (
+    "Timestamp",
+    "Account",
+    "Account.1",
+    "Amount Received",
+    "Is Laundering",
+)
+
+
+def adapt_amlsim(
+    df: pd.DataFrame, settle_offset_ms: int = 1000, seed: int = 0
+) -> pd.DataFrame:
+    """Map an IBM/AMLSim transaction frame into the PIX event schema.
+
+    The IBM "Transactions for AML" set (AMLSim-based) labels each transfer with
+    ``Is Laundering``. We project its real columns onto the PIX schema and
+    synthesize the PIX-native binary signals, giving a third independently
+    authored multi-hop generator on identical detector inputs.
+
+    Args:
+        df: A frame with the columns of :data:`AMLSIM_COLUMNS`.
+        settle_offset_ms: Fixed settlement offset applied to the timeline.
+        seed: Seed for the synthesized PIX-native binary signals.
+
+    Returns:
+        A frame in the PIX-native schema.
+
+    Raises:
+        KeyError: If a required column is missing.
+    """
+    missing = [c for c in AMLSIM_COLUMNS if c not in df.columns]
+    if missing:
+        raise KeyError(f"missing AMLSim columns: {missing}")
+
+    df = df.reset_index(drop=True)
+    is_fraud = df["Is Laundering"].astype(int).to_numpy()
+    ts = pd.to_datetime(df["Timestamp"], errors="coerce")
+    t0 = ts.min()
+    t_init_ms = (
+        (ts - t0).dt.total_seconds().fillna(0.0) * 1000.0
+    ).astype("int64").to_numpy()
+
+    device_changed, new_payee, velocity = _synth_signals(is_fraud, seed)
+    payer = df["Account"].map(_account_id).to_numpy()
+    payee = df["Account.1"].map(_account_id).to_numpy()
+    amount = df["Amount Received"].astype("float64").to_numpy()
+
+    events = [
+        PixEvent(
+            event_id=f"AML{i:08d}",
+            scenario="mule_chain" if is_fraud[i] else "legit",
+            is_fraud=int(is_fraud[i]),
+            payer_account=int(payer[i]),
+            payee_account=int(payee[i]),
+            payee_dict_key=f"evp-aml-{int(payee[i]):08d}",
+            amount_brl=float(amount[i]),
+            t_init_ms=int(t_init_ms[i]),
+            t_settle_ms=int(t_init_ms[i]) + settle_offset_ms,
+            med_layer=0,
+            device_changed=int(device_changed[i]),
+            new_payee=int(new_payee[i]),
+            payer_velocity_1h=int(velocity[i]),
+            is_remote_session=0,
+            coercion_flag=0,
         )
-    return events_to_frame(events)
+        for i in range(len(df))
+    ]
+    frame = events_to_frame(events)
+    logger.info(
+        "adapted AMLSim frame: events=%d fraud=%d rate=%.5f",
+        len(frame),
+        int(frame["is_fraud"].sum()),
+        frame["is_fraud"].mean(),
+    )
+    return frame

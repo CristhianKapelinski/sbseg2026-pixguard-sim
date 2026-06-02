@@ -1,11 +1,11 @@
 """PIX-native event schema.
 
 This module defines the normalized event record that every generator (the
-in-repo synthetic generator, the Tide adapter, and the PENDING pix-fraud-br /
-AMLSim adapters) maps into, and that the harness consumes. The fields mirror
-authentic PIX/DICT/MED payload semantics (DICT key resolution, device/geo
-signals, multi-hop refund layer index) drawn from the public PIX ecosystem
-schemas, without using any real customer data.
+in-repo synthetic generator and the Tide, pix-fraud-br, and AMLSim adapters)
+maps into, and that the harness consumes. The fields mirror authentic
+PIX/DICT/MED payload semantics (DICT key resolution, device/geo signals,
+multi-hop refund layer index) drawn from the public PIX ecosystem schemas,
+without using any real customer data.
 
 Every event carries a *relative* timeline: ``t_init_ms`` is when the transfer
 is initiated and ``t_settle_ms`` is when it becomes irrevocable. The harness
