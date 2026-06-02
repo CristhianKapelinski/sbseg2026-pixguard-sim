@@ -2,9 +2,9 @@
 
 PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness** for fraud detectors targeting Pix, Brazil's instant-payment system. Because Pix settlement is irrevocable and the new MED-2.0 regulation (mandatory since 2 February 2026) requires institutions to *block fraud before money settles*, accuracy alone is not enough: a detector must also decide **in time**. PixGuard-Sim scores any detector by the **pre-deadline flag fraction** — the share of frauds flagged within a configurable pre-transaction decision deadline — alongside precision, recall, F1, and PR-AUC with 95% confidence intervals. It also ships reference definitions of two Pix-native scenarios absent from open prior work (multi-hop MED-2.0 refund tracing and coercion) and validates everything across three independently-authored generators through thin, checksum-pinned adapters. The headline finding: two detectors with statistically indistinguishable batch F1 are separated decisively by the deadline metric — at a 1000 ms deadline one flags **0.974** of frauds in time while the other flags **0.000** until its 5000 ms budget elapses — and the same inversion reappears on the real released pix-fraud-br set (**0.844** vs **0.000**). All inputs are synthetic and ground-truth labeled; no number is a real-world fraud rate.
 
-> **Paper:** *PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors* — SBRC 2026 Salão de Ferramentas.
+> **Paper:** *PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors* — SBSeg 2026 Salão de Ferramentas.
 
-> **For SBRC 2026 artifact reviewers (SeloD/F/S/R).** This README is the single, self-contained guide for the evaluation: follow it end to end and you reach all four seals. The other Markdown file in the repository (`DOCUMENTATION.md`) is complementary technical documentation with the full captured experiment output and is **not required** for the artifact review.
+> **For SBSeg 2026 artifact reviewers (SeloD/F/S/R).** This README is the single, self-contained guide for the evaluation: follow it end to end and you reach all four seals. The other Markdown file in the repository (`DOCUMENTATION.md`) is complementary technical documentation with the full captured experiment output and is **not required** for the artifact review.
 
 ---
 
@@ -12,7 +12,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 
 | Section | Description |
 |---|---|
-| [Considered Seals](#considered-seals) | The four SBRC quality seals targeted by this artifact |
+| [Considered Seals](#considered-seals) | The four SBSeg quality seals targeted by this artifact |
 | [Basic Information](#basic-information) | Hardware, OS, and software environment |
 | [Dependencies](#dependencies) | Key pinned packages and how third-party inputs are fetched |
 | [Security Concerns](#security-concerns) | Risks and mitigations for evaluators |
