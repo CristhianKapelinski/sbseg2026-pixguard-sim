@@ -1,11 +1,12 @@
 """Industry-style rule-threshold baseline detector.
 
 A transparent floor detector: it flags an event when the amount exceeds a
-threshold or velocity is high, optionally combined with a new-payee or
-remote-session signal. It deliberately ignores the deep-layer MED structure and
-the coercion-only signal, which is why it is expected to miss deep MED layers
-and coercion. Its decision is emitted at initiation plus a small fixed
-in-rail inference budget, modeling a synchronous pre-transaction rule check.
+threshold or velocity is high, optionally combined with a new-payee signal. It
+keys only on observable behavioural signals (amount, trailing-hour velocity,
+new-payee), never on the per-scenario label columns (``is_remote_session``,
+``coercion_flag``, ``med_layer``), so it carries no label leakage. It
+deliberately ignores the deep-layer MED structure and the coercion-only signal,
+which is why it is expected to miss deep MED layers and coercion.
 """
 
 from __future__ import annotations
@@ -44,15 +45,17 @@ class RuleThresholdDetector(Detector):
         return self
 
     def score(self, frame: pd.DataFrame) -> np.ndarray:
-        """Return a graded rule score in ``[0, 1]`` per event."""
+        """Return a graded rule score in ``[0, 1]`` per event.
+
+        Keys only on observable behavioural signals (amount, velocity,
+        new-payee); it does not read the leaked per-scenario label columns.
+        """
         amount = frame["amount_brl"].to_numpy()
         velocity = frame["payer_velocity_1h"].to_numpy()
-        remote = frame["is_remote_session"].to_numpy()
         new_payee = frame["new_payee"].to_numpy()
 
         score = np.zeros(len(frame), dtype="float64")
         score += 0.5 * (amount > self.amount_threshold_brl)
         score += 0.3 * (velocity > self.velocity_threshold)
-        score += 0.2 * (remote == 1)
-        score += 0.1 * (new_payee == 1)
+        score += 0.2 * (new_payee == 1)
         return np.clip(score, 0.0, 1.0)

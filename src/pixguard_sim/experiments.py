@@ -40,7 +40,7 @@ from pixguard_sim.detectors import (
     make_ml_detector,
     torch_available,
 )
-from pixguard_sim.detectors.base import Detector
+from pixguard_sim.detectors.base import Detector, measure_score_latency_ms
 from pixguard_sim.generator import generate_events
 from pixguard_sim.harness import evaluate_all, evaluate_detector, train_eval_split
 from pixguard_sim.logging_setup import content_hash
@@ -53,9 +53,13 @@ logger = logging.getLogger(__name__)
 def _baseline_detectors(seed: int) -> list[Detector]:
     """Build the baseline detector set used across experiments.
 
-    Two ML detectors share the same family but carry different inference
-    budgets, so the harness can separate them on the pre-deadline fraction even
-    when their batch P/R is close. The rule detector is the floor.
+    The detector family spans the rule floor plus logistic regression, random
+    forest, and gradient boosting. The pre-deadline metric is fed the *measured*
+    per-event scoring latency of each detector (see
+    :func:`measure_score_latency_ms`); the ``inference_budget_ms`` argument is
+    retained only as descriptive metadata and no longer drives the deadline
+    metric. The ``gb_slow`` name is kept for continuity but the latency it is
+    scored on is whatever its scoring call actually takes.
     """
     return [
         RuleThresholdDetector(),
@@ -274,7 +278,7 @@ def experiment_e6(cfg: PipelineConfig) -> dict[str, Any]:
         )
         tr, _ = train_eval_split(train_df, seed=cfg.generator.seed)
         det.fit(tr)
-        scores = det.score(test_df)
+        scores, score_total_ms, per_event_ms = measure_score_latency_ms(det, test_df)
         y = test_df["is_fraud"].to_numpy()
         m = batch_metrics(y, scores, cfg.harness.score_threshold,
                          n_bootstrap=cfg.harness.n_bootstrap, seed=cfg.generator.seed)
@@ -285,11 +289,13 @@ def experiment_e6(cfg: PipelineConfig) -> dict[str, Any]:
             "name": name,
             "n_test": int(len(test_df)),
             "n_test_fraud": int(y.sum()),
+            "measured_latency_ms": round(per_event_ms, 6),
+            "measured_score_total_ms": round(score_total_ms, 3),
             "batch": m,
             "pre_deadline_1000ms": pre,
         })
-        logger.info("E6 %-22s F1=%.3f PR-AUC=%.3f recall=%.3f",
-                    name, m["f1"], m["pr_auc"], m["recall"])
+        logger.info("E6 %-22s F1=%.3f PR-AUC=%.3f recall=%.3f latency=%.4fms/event",
+                    name, m["f1"], m["pr_auc"], m["recall"], per_event_ms)
 
     # In-distribution references first, then the cross-generator transfers.
     _transfer("inrepo_to_inrepo", inrepo, train_eval_split(
@@ -333,22 +339,37 @@ def experiment_e7(cfg: PipelineConfig) -> dict[str, Any]:
             t0 = time.time()
             det.fit(train)
             fit_s = time.time() - t0
-            t1 = time.time()
-            scores = det.score(eval_)
-            score_s = time.time() - t1
+            # Real measured per-event scoring latency (total scoring wall-time /
+            # n events), the same observable used for the deadline metric.
+            scores, score_total_ms, per_event_ms = measure_score_latency_ms(
+                det, eval_)
+            score_s = score_total_ms / 1000.0
             y = eval_["is_fraud"].to_numpy()
             m = batch_metrics(y, scores, cfg.harness.score_threshold,
                              n_bootstrap=cfg.harness.n_bootstrap, seed=cfg.generator.seed)
+            dt = det.decision_latency_ms(eval_)
+            pre = {
+                int(d): pre_deadline_with_ci(
+                    y, scores, dt, cfg.harness.score_threshold, d)
+                for d in cfg.harness.deadline_sweep_ms
+            }
             results[det.name] = {
                 "batch": m,
                 "fit_seconds": round(fit_s, 3),
                 "score_seconds": round(score_s, 3),
+                "measured_latency_ms": round(per_event_ms, 6),
+                "measured_score_total_ms": round(score_total_ms, 3),
+                "n_scored": int(len(eval_)),
+                "pre_deadline_fraction": {str(k): v for k, v in pre.items()},
             }
-            logger.info("E7 %-10s on %-10s F1=%.3f PR-AUC=%.3f fit=%.2fs",
-                        det.name, src_name, m["f1"], m["pr_auc"], fit_s)
+            logger.info(
+                "E7 %-10s on %-10s F1=%.3f PR-AUC=%.3f fit=%.2fs "
+                "latency=%.4fms/event",
+                det.name, src_name, m["f1"], m["pr_auc"], fit_s, per_event_ms)
         out["datasets"][src_name] = {
             "n_events": int(len(frame)),
             "n_fraud": int(frame["is_fraud"].sum()),
+            "deadline_sweep_ms": list(cfg.harness.deadline_sweep_ms),
             "detectors": results,
         }
     return out

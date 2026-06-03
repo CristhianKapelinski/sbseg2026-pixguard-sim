@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 from pixguard_sim.config import HarnessConfig
-from pixguard_sim.detectors.base import Detector
+from pixguard_sim.detectors.base import Detector, measure_score_latency_ms
 from pixguard_sim.metrics import (
     batch_metrics,
     pre_deadline_with_ci,
@@ -43,6 +43,9 @@ class DetectorReport:
 
     detector: str
     inference_budget_ms: int
+    measured_latency_ms: float
+    measured_score_total_ms: float
+    n_scored: int
     batch: dict[str, float]
     pre_deadline_fraction: dict[int, dict[str, float | int]]
     per_scenario: dict[str, dict[str, float]]
@@ -55,6 +58,9 @@ class DetectorReport:
         return {
             "detector": self.detector,
             "inference_budget_ms": self.inference_budget_ms,
+            "measured_latency_ms": self.measured_latency_ms,
+            "measured_score_total_ms": self.measured_score_total_ms,
+            "n_scored": self.n_scored,
             "batch": self.batch,
             "pre_deadline_fraction": {
                 str(k): v for k, v in self.pre_deadline_fraction.items()
@@ -108,7 +114,7 @@ def evaluate_detector(
         breakdown, and the recall-by-MED-layer breakdown, all with CIs.
     """
     detector.fit(train)
-    scores = detector.score(eval_)
+    scores, score_total_ms, per_event_ms = measure_score_latency_ms(detector, eval_)
     decision_time = detector.decision_latency_ms(eval_)
     y_true = eval_["is_fraud"].to_numpy()
     thr = cfg.score_threshold
@@ -154,19 +160,25 @@ def evaluate_detector(
     report = DetectorReport(
         detector=detector.name,
         inference_budget_ms=detector.inference_budget_ms,
+        measured_latency_ms=round(per_event_ms, 6),
+        measured_score_total_ms=round(score_total_ms, 3),
+        n_scored=int(len(eval_)),
         batch=batch,
         pre_deadline_fraction=pre_deadline,
         per_scenario=per_scenario,
         recall_by_med_layer=recall_by_layer,
     )
     logger.info(
-        "evaluated %-26s P=%.3f R=%.3f F1=%.3f PR-AUC=%.3f budget=%dms",
+        "evaluated %-26s P=%.3f R=%.3f F1=%.3f PR-AUC=%.3f "
+        "measured_latency=%.4fms/event (total=%.1fms over %d)",
         detector.name,
         batch["precision"],
         batch["recall"],
         batch["f1"],
         batch["pr_auc"],
-        detector.inference_budget_ms,
+        per_event_ms,
+        score_total_ms,
+        len(eval_),
     )
     return report
 

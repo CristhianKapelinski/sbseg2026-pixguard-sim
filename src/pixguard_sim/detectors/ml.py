@@ -7,11 +7,10 @@ forest, gradient boosting, XGBoost) so the comparison is like-for-like. The
 detector is fit on the numeric feature columns of the schema and exposes a
 probability as its score.
 
-The ``inference_budget_ms`` argument models the detector's decision latency on
-the event's relative timeline. Two detectors with near-identical batch
-precision/recall but different inference budgets are separated by the harness's
-pre-deadline flag fraction; this is the headline discriminative claim, so the
-budget is a first-class, configurable property of the detector.
+The ``inference_budget_ms`` argument is retained only as descriptive metadata.
+The harness scores the pre-deadline flag fraction on each detector's *measured*
+per-event scoring latency (timed by ``measure_score_latency_ms``), not on an
+assumed budget, so the deadline metric reflects observed inference speed.
 """
 
 from __future__ import annotations

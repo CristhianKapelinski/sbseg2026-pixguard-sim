@@ -17,6 +17,7 @@ from pixguard_sim.adapters import (
 )
 from pixguard_sim.config import GeneratorConfig, HarnessConfig
 from pixguard_sim.detectors import RuleThresholdDetector, make_ml_detector
+from pixguard_sim.detectors.base import measure_score_latency_ms
 from pixguard_sim.generator import generate_events
 from pixguard_sim.harness import evaluate_all, train_eval_split
 from pixguard_sim.schema import EVENT_COLUMNS
@@ -80,11 +81,21 @@ def test_rule_detector_scores_in_unit_interval() -> None:
     assert scores.min() >= 0.0 and scores.max() <= 1.0
 
 
-def test_decision_latency_is_relative_to_initiation() -> None:
+def test_decision_latency_is_measured_not_assumed() -> None:
+    """Decision latency must come from a real timed scoring call, not a budget."""
     frame = generate_events(_SMALL)
-    det = make_ml_detector("lr", seed=7, inference_budget_ms=500)
+    det = make_ml_detector("lr", seed=7, inference_budget_ms=500).fit(frame)
+    # Before any timed scoring, the latency defaults to instantaneous, never the
+    # hand-set budget.
+    assert det.measured_latency_ms == 0.0
+    scores, total_ms, per_event_ms = measure_score_latency_ms(det, frame)
+    assert len(scores) == len(frame)
+    assert total_ms >= 0.0
+    assert per_event_ms >= 0.0
+    # decision_latency_ms now returns the measured per-event latency, not 500.
     latency = det.decision_latency_ms(frame)
-    assert np.all(latency == 500.0)
+    assert np.all(latency == per_event_ms)
+    assert per_event_ms != 500.0
     assert len(latency) == len(frame)
 
 

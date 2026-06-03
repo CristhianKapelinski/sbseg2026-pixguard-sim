@@ -119,14 +119,20 @@ def _enforce_dtypes(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 # Numeric feature columns exposed to detectors. The harness never leaks the
-# label, scenario, or any identifier; detectors see only these signals plus the
-# event timeline.
+# label, scenario, or any identifier; detectors see only these observable
+# behavioural signals plus the event timeline.
+#
+# Three event-schema columns are deliberately *excluded* from this detector
+# feature set because they are per-scenario labels in disguise (label leakage):
+# ``coercion_flag`` is 1 iff the event is a coercion scenario, ``is_remote_session``
+# is 1 iff the event is an account-takeover scenario, and ``med_layer`` is >0 iff
+# the event is a multi-hop MED refund hop. Training on those would let a detector
+# read the scenario off a single column rather than learn behaviour, so they stay
+# in the event schema/data but are kept out of the feature set. Detectors see only
+# the four behavioural signals below.
 FEATURE_COLUMNS: tuple[str, ...] = (
     "amount_brl",
-    "med_layer",
     "device_changed",
     "new_payee",
     "payer_velocity_1h",
-    "is_remote_session",
-    "coercion_flag",
 )
