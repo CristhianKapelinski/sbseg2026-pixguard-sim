@@ -32,6 +32,13 @@ datasets = [
 gnn = [
     "torch>=2.2",
 ]
+# Instruct-LLM detector extra (E8): a small off-the-shelf model scoring each
+# event, used to test the deadline metric against a genuinely slow detector.
+llm = [
+    "torch>=2.2",
+    "transformers>=4.44",
+    "accelerate>=0.30",
+]
 # Build-only extra to regenerate the paper figure; not a runtime dependency.
 figures = [
     "matplotlib>=3.7,<3.11",

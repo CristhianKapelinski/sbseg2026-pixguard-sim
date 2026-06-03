@@ -39,31 +39,31 @@ def main(argv: list[str]) -> int:
     e2 = json.loads((results_dir / "e2.json").read_text(encoding="utf-8"))
     e3 = json.loads((results_dir / "e3.json").read_text(encoding="utf-8"))
     e5 = json.loads((results_dir / "e5.json").read_text(encoding="utf-8"))
+    e8 = json.loads((results_dir / "e8.json").read_text(encoding="utf-8"))
 
     plt.rcParams.update({"font.size": 9, "figure.dpi": 150})
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(9.6, 2.7))
 
-    # Panel (a): pre-deadline flag fraction vs deadline (E1).
-    label_map = {
-        "rule_threshold": "RULE",
-        "lr_fast": "LR",
-        "rf_fast": "RF",
-        "gb_slow": "GB-slow",
-        "xgb_fast": "XGB",
-    }
-    markers = ["o", "s", "^", "D"]
-    for det, marker in zip(e1["detectors"], markers, strict=False):
+    # Panel (a): pre-deadline flag fraction vs deadline under REAL measured
+    # latency (E8). The reasoning LLM sits at zero until its latency clears the
+    # window; the fast detectors plateau at their recall.
+    label_map = {"rf_fast": "RF", "llm_terse": "LLM terse",
+                 "llm_reasoning": "LLM reasoning"}
+    e8_deadlines = e8.get("deadline_sweep_ms", [200, 1000, 2000, 5000])
+    markers = {"rf_fast": "^", "llm_terse": "s", "llm_reasoning": "o"}
+    for det in e8["detectors"]:
         pdf = det["pre_deadline_fraction"]
-        y = [_pdf_value(pdf[str(d)]) for d in DEADLINES]
+        y = [_pdf_value(pdf[str(d)]) for d in e8_deadlines]
         name = label_map.get(det["detector"], det["detector"])
-        ax1.plot(DEADLINES, y, marker=marker, label=name, linewidth=1.3)
+        ax1.plot(e8_deadlines, y, marker=markers.get(det["detector"], "o"),
+                 label=name, linewidth=1.3)
     ax1.set_xscale("log")
     ax1.set_xlabel("decision deadline (ms)")
     ax1.set_ylabel("pre-deadline flag fraction")
     ax1.set_ylim(-0.03, 1.03)
     ax1.grid(True, which="both", linestyle=":", linewidth=0.4)
     ax1.legend(fontsize=7, loc="center left")
-    ax1.set_title("(a) deadline metric is discriminative", fontsize=9)
+    ax1.set_title("(a) real latency vs deadline (E8)", fontsize=9)
 
     # Panel (b): per-scenario recall, single-hop-trained (E2), with Wilson CIs.
     det = e2["detectors"][0]

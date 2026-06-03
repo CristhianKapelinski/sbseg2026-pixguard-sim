@@ -25,6 +25,7 @@ import logging
 import time
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from pixguard_sim import data_io
@@ -375,6 +376,142 @@ def experiment_e7(cfg: PipelineConfig) -> dict[str, Any]:
     return out
 
 
+def _fraud_enriched_subsample(
+    frame: pd.DataFrame, n: int, target_fraud: int, seed: int
+) -> pd.DataFrame:
+    """Draw a seeded subsample of ``n`` rows with a fixed fraud count.
+
+    At the in-repo 1.2% base rate a 1000-row stratified draw carries only ~12
+    fraud events, which is too few for a credible recall/PR-AUC or a tight
+    pre-deadline CI (whose N is the fraud count). This draws ``target_fraud``
+    true frauds and ``n - target_fraud`` legitimate events instead, so the LLM
+    and tabular detectors are scored on the same labelled events with enough
+    fraud to read the metrics honestly. The enriched prevalence is reported in
+    the result so it is never mistaken for the operational base rate.
+    """
+    rng = np.random.default_rng(seed)
+    pos = frame[frame["is_fraud"] == 1]
+    neg = frame[frame["is_fraud"] == 0]
+    n_pos = min(target_fraud, len(pos))
+    n_neg = min(n - n_pos, len(neg))
+    pos_idx = rng.choice(len(pos), size=n_pos, replace=False)
+    neg_idx = rng.choice(len(neg), size=n_neg, replace=False)
+    sub = pd.concat([pos.iloc[pos_idx], neg.iloc[neg_idx]])
+    return sub.sample(frac=1.0, random_state=seed).reset_index(drop=True)
+
+
+def experiment_e8(cfg: PipelineConfig) -> dict[str, Any]:
+    """E8: does a genuinely slow LLM detector miss a realistic deadline?
+
+    Honest test of whether the pre-deadline flag fraction is meaningful with a
+    real slow detector. An off-the-shelf small instruct LLM scores each event
+    one transaction at a time (the way an online check would have to call it);
+    its *measured* per-event generation latency is compared with the
+    sub-microsecond latency of a tabular random forest on the SAME labelled,
+    seeded, label-stratified subsample. If the LLM's measured latency exceeds a
+    realistic pre-settlement deadline while the RF's does not, the deadline
+    metric separates them despite comparable batch accuracy; otherwise it does
+    not, and that is reported honestly.
+    """
+    import os
+
+    from pixguard_sim.detectors.llm import LLMDetector
+
+    # The LLM scores one event per forward generation, so the eval set is a
+    # bounded subsample (not the full ~16k events). N, the target fraud count,
+    # the model id, and the deadline sweep are read from the environment so the
+    # driver can be pointed at a larger N or a stronger model without code
+    # changes. The subsample is fraud-enriched (fixed fraud count) so recall,
+    # PR-AUC, and the pre-deadline CI (whose N is the fraud count) are credible.
+    n_sub = int(os.environ.get("PIXGUARD_E8_N", "1000"))
+    target_fraud = int(os.environ.get("PIXGUARD_E8_FRAUD", "150"))
+    model_id = os.environ.get("PIXGUARD_E8_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
+    sweep_env = os.environ.get("PIXGUARD_E8_DEADLINES", "200,1000,2000,5000")
+    sweep = [int(x) for x in sweep_env.split(",")]
+    logger.info("=== E8: slow LLM detector vs fast tabular, real latency ===")
+
+    frame = generate_events(cfg.generator)
+    train, eval_full = train_eval_split(frame, seed=cfg.generator.seed)
+    eval_ = _fraud_enriched_subsample(
+        eval_full, n_sub, target_fraud, cfg.generator.seed
+    )
+    y = eval_["is_fraud"].to_numpy()
+    thr = cfg.harness.score_threshold
+    logger.info(
+        "E8 subsample N=%d (fraud=%d, enriched rate=%.4f) from eval pool=%d "
+        "(operational base rate ~%.4f)",
+        len(eval_), int(y.sum()), float(y.mean()), len(eval_full),
+        float(eval_full["is_fraud"].mean()),
+    )
+
+    def _run(det: Detector) -> dict[str, Any]:
+        det.fit(train)
+        scores, total_ms, per_event_ms = measure_score_latency_ms(det, eval_)
+        dt = det.decision_latency_ms(eval_)
+        m = batch_metrics(y, scores, thr, n_bootstrap=cfg.harness.n_bootstrap,
+                          seed=cfg.generator.seed)
+        pre = {
+            int(d): pre_deadline_with_ci(y, scores, dt, thr, d) for d in sweep
+        }
+        lat = getattr(det, "per_event_latencies_ms", None)
+        lat_stats = None
+        if lat is not None and len(lat) > 0:
+            lat_stats = {
+                "mean_ms": float(np.mean(lat)),
+                "median_ms": float(np.median(lat)),
+                "p95_ms": float(np.percentile(lat, 95)),
+                "min_ms": float(np.min(lat)),
+                "max_ms": float(np.max(lat)),
+            }
+        logger.info(
+            "E8 %-12s F1=%.3f PR-AUC=%.3f recall=%.3f mean_lat=%.4fms/event",
+            det.name, m["f1"], m["pr_auc"], m["recall"], per_event_ms,
+        )
+        return {
+            "detector": det.name,
+            "measured_mean_latency_ms": round(per_event_ms, 6),
+            "measured_score_total_ms": round(total_ms, 3),
+            "per_event_latency_stats_ms": lat_stats,
+            "batch": m,
+            "pre_deadline_fraction": {str(k): v for k, v in pre.items()},
+        }
+
+    # Two LLM regimes plus the fast tabular reference, all on the SAME events.
+    # The terse LLM emits a single probability token; the reasoning LLM thinks
+    # step by step before concluding (the plausible way to make a small model
+    # usable), which costs more generated tokens and therefore more latency.
+    llm_terse = LLMDetector(
+        model_id=model_id, name="llm_terse", reasoning=False, max_new_tokens=8
+    )
+    llm_reason = LLMDetector(
+        model_id=model_id, name="llm_reasoning", reasoning=True,
+        max_new_tokens=320,
+    )
+    rf = make_ml_detector("rf", cfg.generator.seed, inference_budget_ms=50,
+                          name="rf_fast")
+
+    detectors_out = [_run(llm_terse), _run(llm_reason), _run(rf)]
+
+    return {
+        "experiment": "E8",
+        "question": (
+            "With real measured latency, does a slow LLM detector miss a "
+            "realistic pre-settlement deadline that a fast tabular detector "
+            "meets?"
+        ),
+        "model_id": model_id,
+        "subsample_is_fraud_enriched": True,
+        "n_subsample": int(len(eval_)),
+        "n_fraud_subsample": int(y.sum()),
+        "enriched_fraud_rate_subsample": float(y.mean()),
+        "operational_base_rate": float(eval_full["is_fraud"].mean()),
+        "n_eval_pool": int(len(eval_full)),
+        "score_threshold": thr,
+        "deadline_sweep_ms": sweep,
+        "detectors": detectors_out,
+    }
+
+
 EXPERIMENTS = {
     "E1": experiment_e1,
     "E2": experiment_e2,
@@ -383,4 +520,5 @@ EXPERIMENTS = {
     "E5": experiment_e5,
     "E6": experiment_e6,
     "E7": experiment_e7,
+    "E8": experiment_e8,
 }
