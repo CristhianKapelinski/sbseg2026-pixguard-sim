@@ -62,8 +62,8 @@ source URL. The four Tide MD5s match the Zenodo record exactly:
 `7b8dca92...399c`. The pix-fraud-br Parquet has exactly 2,000,000 rows and
 15,376 frauds (0.7688%), as published.
 
-The four in-repo scenarios map onto the four thematic groups of the public PIX-
-fraud taxonomy of Pizzolato et al. (arXiv:2511.20902), which classifies 15 scam
+The four in-repo scenarios map onto the four thematic groups of a public PIX-
+fraud taxonomy (arXiv:2511.20902), which classifies 15 scam
 methodologies into four groups (Social Engineering by Authority/Trust; by
 Refund/Benefit/Urgency; Attacks with Physical Interaction; Software- and
 Remote-Access Attacks) and explicitly recommends "the creation of fraud
@@ -95,7 +95,7 @@ count.
 
 ## 3. Experiments (real captured output)
 
-Environment: Python 3.12 on Linux; tabular models on CPU, the GraphSAGE baseline
+Environment: Python 3.13 on Linux; tabular models on CPU, the GraphSAGE baseline
 on a CUDA GPU. Each experiment writes JSON to `results/` and a timestamped log to
 `logs/`. Configuration: `configs/default.json` (seed 20260202, 4000 accounts,
 40000 legitimate events, fraud base rate 0.012, MED max depth 5, deadline sweep
@@ -111,23 +111,53 @@ pixguard-sim --config configs/default.json run --experiments E1 E2 E4
 pixguard-sim --config configs/default.json --data-dir "$DATA" run --experiments E3 E5 E6 E7
 ```
 
-### 3.1 E1 (main claim): the pre-deadline flag fraction is discriminative
+### 3.1 E1 (main claim, latency property): the deadline metric under measured latency
 
-In-repo stream: 40477 events (fraud=477, rate=0.0118); train=24286 (fraud=286),
-eval=16191 (fraud=191). Batch metrics on the evaluation split:
+The pre-deadline flag fraction is driven by each detector's **measured** per-event
+inference latency (timed by `measure_score_latency_ms`), never by an assumed
+budget. In-repo stream (full config): 40477 events (fraud=477, rate=0.0118);
+train=24286, eval=16191 (fraud=191). Batch metrics and measured latency on the
+evaluation split:
 
-| detector | budget (ms) | F1 [95% CI] | PR-AUC [95% CI] | pre@1000ms [95% CI] | pre@5000ms |
+| detector | meas. latency (ms/event) | F1 [95% CI] | PR-AUC [95% CI] | recall | pre@1000ms |
 |---|---|---|---|---|---|
-| rule_threshold | 20 | 0.356 [0.288,0.424] | 0.534 [0.465,0.600] | 0.288 [0.228,0.356] | 0.288 |
-| lr_fast | 50 | 0.965 [0.945,0.983] | 0.976 [0.947,0.997] | 0.948 [0.906,0.971] | 0.948 |
-| rf_fast | 50 | 0.982 [0.964,0.994] | 0.987 [0.969,1.000] | 0.974 [0.940,0.989] | 0.974 |
-| gb_slow | 5000 | 0.984 [0.969,0.995] | 0.990 [0.975,0.999] | 0.000 [0.000,0.020] | 0.969 |
+| rule_threshold | < 0.001 | 0.412 [0.340,0.477] | 0.395 [0.332,0.455] | 0.346 | 0.346 |
+| lr_fast | < 0.001 | 0.716 [0.659,0.771] | 0.722 [0.657,0.790] | 0.581 | 0.581 |
+| rf_fast | 0.003 | 0.797 [0.747,0.839] | 0.844 [0.799,0.885] | 0.728 | 0.728 |
+| gb_slow | < 0.001 | 0.030 [0.025,0.035] | 0.011 [0.009,0.012] | 0.717 | 0.717 |
 
-**Interpretation.** `rf_fast` and `gb_slow` have statistically indistinguishable
-batch metrics (F1 0.982 vs 0.984), yet at the 1000 ms deadline `rf_fast` flags
-0.974 of frauds in time while `gb_slow`, whose 5000 ms budget exceeds the window,
-flags 0.000 until the deadline reaches 5000 ms. This is a deterministic latency
-property batch P/R is blind to. This is the designated reproduction target.
+**Interpretation.** Every tabular detector scores an event in well under one
+millisecond, so each meets any realistic pre-settlement deadline and its
+pre-deadline fraction equals its recall — among detectors at this cost the
+deadline metric adds nothing over recall, by design. The metric begins to
+separate detectors from accuracy only when scoring latency grows, which the LLM
+study (E8) examines directly.
+
+### 3.1a E8 (the latency realization): a slow reasoning LLM misses the window
+
+We score an off-the-shelf small instruct LLM (Qwen2.5-1.5B) one event at a time,
+the way an online check would have to call it, timing each generation; an
+enriched subsample of 1000 in-repo events (150 frauds; underlying base rate
+1.18%) is scored by the LLM in two regimes and by a random forest on identical
+events. Pre-deadline fraction at 200/1000/2000 ms:
+
+| detector | PR-AUC | latency mean/p95 (ms) | pre@200 | pre@1000 | pre@2000 |
+|---|---|---|---|---|---|
+| rf_fast | 0.941 | < 0.01 | 0.740 | 0.740 | 0.740 |
+| llm_terse | 0.213 | 34 / 34 | 0.720 | 0.720 | 0.720 |
+| llm_reasoning | 0.171 | 1463 / 1769 | **0.000** | **0.000** | **1.000** |
+
+**Interpretation.** The reasoning LLM's 1463 ms mean latency exceeds the 1000 ms
+window, so it flags **0.000** of frauds within a 1000 ms deadline (and none within
+200 ms), recovering to 1.000 only once the deadline reaches 2000 ms — while the
+sub-millisecond random forest and the terse LLM meet every deadline. The LLM is
+not the better detector: it scores PR-AUC 0.171 (reasoning) and 0.213 (terse)
+against the random forest's 0.941. The metric is built to surface exactly this:
+a heavyweight detector can be both slower than the decision window and no more
+accurate, and only the latency-aware metric exposes the first half. This is the
+designated reproduction target (C1). E8 requires the `llm` extra (torch,
+transformers, accelerate) and a model download; its captured output is in
+`results/e8.json`.
 
 ### 3.2 E2: single-hop-trained detectors collapse on the new scenarios
 
@@ -136,14 +166,17 @@ evaluated on the full stream. Per-scenario recall (Wilson 95% CI):
 
 | detector | account_takeover | coercion | fake_med_refund | mule_chain |
 |---|---|---|---|---|
-| rf_single_hop | 1.000 [0.935,1.000] N=55 | 0.000 [0.000,0.077] N=46 | 0.000 [0.000,0.092] N=38 | 0.404 [0.282,0.539] N=52 |
-| gb_single_hop | 1.000 [0.935,1.000] | 0.000 [0.000,0.077] | 0.000 [0.000,0.092] | 0.404 [0.282,0.539] |
+| rf_single_hop | 0.909 [0.804,0.961] N=55 | 0.000 [0.000,0.077] N=46 | 0.526 [0.373,0.675] N=38 | 0.846 [0.725,0.920] N=52 |
+| gb_single_hop | 0.891 [0.782,0.949] | 0.043 [0.012,0.145] | 0.526 [0.373,0.675] | 0.827 [0.703,0.906] |
 
-Recall by MED layer (fake_med_refund), single-hop-trained: 0.0 at every layer 0
-through 4. **Interpretation.** A detector that has only seen the single-hop case
-keeps perfect recall there but collapses to 0.000 on coercion and on multi-hop
-MED-2.0, recovering only 0.404 of mule chains. The two PIX-native scenarios prior
-artifacts omit are exactly the ones a single-hop-trained detector cannot catch.
+**Interpretation.** A detector that has only seen the single-hop case keeps high
+recall there (0.909) and transfers reasonably to mule chains (0.846), whose
+behavioural signature resembles it. It does not carry over to the two Pix-native
+scenarios absent from open prior work: recall falls to **0.000** on coercion (the
+sharp, structural result — a coerced victim transacts from their own device in a
+genuine session, so the behavioural features carry no signal) and to 0.526 on
+multi-hop MED-2.0 refunds. The two Pix-native scenarios prior artifacts omit are
+exactly the ones a single-hop-trained detector cannot reliably catch.
 
 ### 3.3 E3: cross-generator credibility on the real released Tide HI/LI sets
 
@@ -168,36 +201,36 @@ real, extremely imbalanced laundering data is genuinely hard.
 pix-fraud-br subsampled to 400,000 transactions (fraud=3075, rate 0.00769),
 scored on its own engineered balance-ratio features:
 
-| detector | budget (ms) | F1 | PR-AUC [95% CI] | pre@1000ms |
+| detector | meas. latency (ms/event) | F1 | PR-AUC [95% CI] | pre@1000ms |
 |---|---|---|---|---|
-| rule_threshold | 20 | 0.015 | 0.014 [0.013,0.015] | 0.927 |
-| lr_fast | 50 | 0.783 | 0.844 [0.826,0.859] | 0.719 |
-| rf_fast | 50 | 0.877 | 0.934 [0.924,0.944] | 0.828 |
-| gb_slow | 5000 | 0.873 | 0.930 [0.918,0.941] | 0.000 |
-| xgb_fast | 50 | 0.876 | 0.938 [0.927,0.946] | 0.844 |
+| rule_threshold | < 0.001 | 0.015 | 0.014 [0.013,0.015] | 0.938 |
+| lr_fast | < 0.001 | 0.402 | 0.532 [0.503,0.564] | 0.277 |
+| rf_fast | 0.002 | 0.875 | 0.935 [0.925,0.945] | 0.835 |
+| gb_slow | < 0.001 | 0.873 | 0.930 [0.918,0.941] | 0.830 |
+| xgb_fast | 0.001 | 0.874 | 0.935 [0.925,0.944] | 0.837 |
 
-**Interpretation.** XGBoost reaches PR-AUC 0.938 [0.927,0.946], reproducing the
-dataset's published XGBoost baseline (PR-AUC 0.865 on its own validation sample)
-within tolerance and confirming the harness does not inflate scores. The deadline
-metric reproduces the rank inversion on real third-party data: xgb_fast and
-gb_slow have near-equal batch F1 (0.876 vs 0.873) but pre@1000ms of 0.844 vs
-0.000.
+**Interpretation.** XGBoost reaches PR-AUC 0.935 [0.925,0.944], reproducing the
+dataset's published XGBoost baseline (PR-AUC 0.865 on its own validation sample,
+different splits and feature sets) within tolerance and confirming the harness
+does not inflate scores. All tabular detectors are sub-millisecond on this set,
+so each detector's pre-deadline fraction tracks its recall — the deadline metric
+discriminates by latency only under a genuinely slow detector (E8), not here.
 
 ### 3.5 E6: cross-generator transfer (the non-circularity check)
 
 A random forest on the shared schema features, trained on one generator and
 tested on another:
 
-| transfer | N test | N fraud | F1 | PR-AUC [95% CI] | recall |
-|---|---|---|---|---|---|
-| in-repo → in-repo | 16191 | 191 | 0.982 | 0.987 [0.969,1.000] | 0.974 |
-| pix-fraud-br → pix-fraud-br | 160000 | 1230 | 0.612 | 0.492 [0.463,0.519] | 0.445 |
-| in-repo → pix-fraud-br | 400000 | 3075 | 0.019 | 0.016 [0.015,0.017] | 0.702 |
-| pix-fraud-br → in-repo | 40477 | 477 | 0.109 | 0.071 [0.064,0.079] | 0.352 |
+| transfer | N test | F1 | PR-AUC [95% CI] | recall |
+|---|---|---|---|---|
+| in-repo → in-repo | 16191 | 0.797 | 0.844 [0.799,0.885] | 0.728 |
+| pix-fraud-br → pix-fraud-br | 160000 | 0.613 | 0.493 [0.464,0.520] | 0.445 |
+| in-repo → pix-fraud-br | 400000 | 0.021 | 0.016 [0.016,0.017] | 0.826 |
+| pix-fraud-br → in-repo | 40477 | 0.109 | 0.071 [0.063,0.079] | 0.352 |
 
 **Interpretation.** A detector that memorised one generator's quirks collapses
 when evaluated on a different generator (PR-AUC 0.016 and 0.071 cross-generator
-vs 0.49-0.99 in-distribution). This is the strongest defence against the
+vs 0.49-0.84 in-distribution). This is the strongest defence against the
 circularity threat.
 
 ### 3.6 E7: GPU GraphSAGE baseline
@@ -207,14 +240,14 @@ tabular random forest on identical inputs:
 
 | dataset | detector | F1 | PR-AUC | recall | fit (s) |
 |---|---|---|---|---|---|
-| in-repo | gnn_sage | 0.327 | 0.482 | 0.963 | 3.15 |
-| in-repo | rf_fast | 0.982 | 0.987 | 0.974 | 0.96 |
-| Tide-HI | gnn_sage | 0.030 | 0.089 | 0.558 | 0.18 |
-| Tide-HI | rf_fast | 0.591 | 0.520 | 0.439 | 15.45 |
+| in-repo | gnn_sage | 0.161 | 0.310 | 0.874 | 3.15 |
+| in-repo | rf_fast | 0.797 | 0.844 | 0.728 | 1.17 |
+| Tide-HI | gnn_sage | 0.027 | 0.085 | 0.595 | 0.19 |
+| Tide-HI | rf_fast | 0.599 | 0.522 | 0.439 | 11.13 |
 
 **Interpretation.** The graph-aware baseline is honest and imperfect: it does not
-dominate the tabular models here, reaching PR-AUC 0.482 on the in-repo layer and
-0.089 on the sparse Tide-HI graph. Per-event inference latency is sub-millisecond
+dominate the tabular models here, reaching PR-AUC 0.310 on the in-repo layer and
+0.085 on the sparse Tide-HI graph. Per-event inference latency is sub-millisecond
 for every detector. Scaling the GNN with neighbour sampling to production-volume
 graphs is a research direction left to future work.
 
@@ -226,9 +259,9 @@ a1064a3436566c25`, `deterministic = true`.
 
 ## 4. Tests and lint
 
-- `python -m pytest`: 25 passed (no network, no containers). The adapter tests
-  build small frames in each dataset's real column schema.
-- `ruff check src tests scripts`: all checks passed.
+- `uv run --extra dev pytest`: 25 passed (no network, no containers). The adapter
+  tests build small frames in each dataset's real column schema.
+- `uv run --extra dev ruff check src tests scripts`: all checks passed.
 
 ## 5. Reproducibility notes
 

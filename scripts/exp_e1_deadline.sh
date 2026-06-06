@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# E1 (MAIN CLAIM): the pre-deadline flag fraction separates two detectors that
-# batch precision/recall/F1 rank as equivalent. Runs the in-repo synthetic
-# pipeline end to end and writes results/e1.json, then prints the headline.
+# E1 (MAIN CLAIM, latency property): the pre-deadline flag fraction is driven by
+# each detector's measured per-event latency. Runs the in-repo synthetic pipeline
+# end to end and writes results/e1.json, then prints the table. The four tabular
+# baselines are all sub-millisecond, so each detector's pre-deadline fraction
+# equals its recall here; the metric separates a detector from accuracy only once
+# it is genuinely slow (the LLM-latency study E8 in the README/DOCUMENTATION).
 #
-# Default: reduced "fast" configuration (a few seconds). The rank inversion is
-# identical to the full run. Pass --full for the paper's full configuration
-# (seed 20260202, 40k legit events, 1000 bootstrap resamples; ~25 s).
+# Default: reduced "fast" configuration (a few seconds). Pass --full for the
+# paper's full configuration (seed 20260202, 40k legit events; ~19 s).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
