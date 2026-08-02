@@ -111,6 +111,7 @@ def main() -> int:
         cmd(pre + "Rec", f3(b["recall"]))
     cmd("PfbPubPRAUC", f3(e5["published_baselines_prauc"]["xgboost"]))
     cmd("PfbRulePRAUC", f3(e5d["rule_threshold"]["batch"]["pr_auc"]))
+    cmd("PfbRuleF", f3(e5d["rule_threshold"]["batch"]["f1"]))
     cmd("PfbRuleRec", f3(e5d["rule_threshold"]["batch"]["recall"]))
 
     # E3 Tide HI/LI cross-generator (rare-illicit regime).
@@ -131,6 +132,8 @@ def main() -> int:
     t = {o["name"]: o for o in e6["transfers"]}
     cmd("TransInSelf", f3(t["inrepo_to_inrepo"]["batch"]["pr_auc"]))
     cmd("TransPfbSelf", f3(t["pfb_to_pfb"]["batch"]["pr_auc"]))
+    cmd("PfbSharedF", f3(t["pfb_to_pfb"]["batch"]["f1"]))
+    cmd("PfbSharedRec", f3(t["pfb_to_pfb"]["batch"]["recall"]))
     cmd("TransInPfb", f3(t["inrepo_to_pfb"]["batch"]["pr_auc"]))
     cmd("TransPfbIn", f3(t["pfb_to_inrepo"]["batch"]["pr_auc"]))
 
