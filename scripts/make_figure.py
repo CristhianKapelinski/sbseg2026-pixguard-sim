@@ -47,8 +47,8 @@ def main(argv: list[str]) -> int:
     # Panel (a): pre-deadline flag fraction vs deadline under REAL measured
     # latency (E8). The reasoning LLM sits at zero until its latency clears the
     # window; the fast detectors plateau at their recall.
-    label_map = {"rf_fast": "RF", "llm_terse": "LLM terse",
-                 "llm_reasoning": "LLM reasoning"}
+    label_map = {"rf_fast": "RF", "llm_terse": "Terse LM",
+                 "llm_reasoning": "Reasoning LM"}
     e8_deadlines = e8.get("deadline_sweep_ms", [200, 1000, 2000, 5000])
     markers = {"rf_fast": "^", "llm_terse": "s", "llm_reasoning": "o"}
     for det in e8["detectors"]:
@@ -58,17 +58,22 @@ def main(argv: list[str]) -> int:
         ax1.plot(e8_deadlines, y, marker=markers.get(det["detector"], "o"),
                  label=name, linewidth=1.3)
     ax1.set_xscale("log")
-    ax1.set_xlabel("decision deadline (ms)")
+    # Label only the deadlines actually swept; matplotlib's default decade
+    # minor ticks collide at this figure width.
+    ax1.set_xticks(e8_deadlines)
+    ax1.set_xticklabels([str(d) for d in e8_deadlines], fontsize=7)
+    ax1.set_xticks([], minor=True)
+    ax1.set_xlabel("decision deadline (ms, log scale)")
     ax1.set_ylabel("pre-deadline flag fraction")
     ax1.set_ylim(-0.03, 1.03)
     ax1.grid(True, which="both", linestyle=":", linewidth=0.4)
     ax1.legend(fontsize=7, loc="center left")
-    ax1.set_title("(a) real latency vs deadline (E8)", fontsize=9)
+    ax1.set_title("(a) measured latency vs. deadline", fontsize=9)
 
     # Panel (b): per-scenario recall, single-hop-trained (E2), with Wilson CIs.
     det = e2["detectors"][0]
     scenarios = ["account_takeover", "mule_chain", "fake_med_refund", "coercion"]
-    labels = ["ATO", "mule", "MED", "coerc."]
+    labels = ["takeover", "mule", "MED", "coercion"]
     recalls, los, his = [], [], []
     for s in scenarios:
         r = det["per_scenario"].get(s, {}).get("recall", {})
@@ -81,7 +86,7 @@ def main(argv: list[str]) -> int:
     ax2.set_ylim(0, 1.05)
     ax2.set_ylabel("recall (single-hop trained)")
     ax2.grid(True, axis="y", linestyle=":", linewidth=0.4)
-    ax2.set_title("(b) collapse on unseen scenarios", fontsize=9)
+    ax2.set_title("(b) recall per scenario", fontsize=9)
 
     # Panel (c): PR-AUC with 95% CI across generators (in-repo, pfb, Tide HI/LI).
     def _best_prauc(detectors: list[dict]) -> tuple[float, float, float]:
@@ -89,7 +94,7 @@ def main(argv: list[str]) -> int:
         b = best["batch"]
         return b["pr_auc"], b["pr_auc_ci_lo"], b["pr_auc_ci_hi"]
 
-    gens = ["in-repo", "pix-fraud-br", "Tide-HI", "Tide-LI"]
+    gens = ["ours", "pix-fraud-br", "Tide-HI", "Tide-LI"]
     pr_inrepo = _best_prauc(e1["detectors"])
     pr_pfb = _best_prauc(e5["detectors"])
     pr_hi = _best_prauc(e3["splits"]["HI"]["detectors"])
@@ -104,7 +109,7 @@ def main(argv: list[str]) -> int:
     ax3.set_ylabel("best PR-AUC (95% CI)")
     ax3.grid(True, axis="y", linestyle=":", linewidth=0.4)
     ax3.tick_params(axis="x", labelrotation=20, labelsize=7)
-    ax3.set_title("(c) PR-AUC spread across generators", fontsize=9)
+    ax3.set_title("(c) PR-AUC per source", fontsize=9)
 
     fig.tight_layout()
     out.parent.mkdir(parents=True, exist_ok=True)

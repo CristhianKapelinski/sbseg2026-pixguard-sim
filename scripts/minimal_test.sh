@@ -36,3 +36,7 @@ print("slow enough to miss the deadline). The deadline metric separates a detect
 print("from accuracy only once it is genuinely slow; see the LLM-latency study (E8)")
 print("in the README.")
 PY
+
+echo
+echo "=== Unit tests ==="
+uv run --extra dev pytest -q

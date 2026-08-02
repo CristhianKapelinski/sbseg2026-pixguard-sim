@@ -84,6 +84,8 @@ def main() -> int:
         if lt:
             cmd(pre + "Lat", f"{lt['mean_ms']:.0f}")
             cmd(pre + "LatPgo", f"{lt['p95_ms']:.0f}")
+            cmd(pre + "LatMin", f"{lt['min_ms']:.0f}")
+            cmd(pre + "LatMax", f"{lt['max_ms']:.0f}")
 
     e8stats("rf_fast", "ErfFast")
     e8stats("llm_terse", "Eterse")

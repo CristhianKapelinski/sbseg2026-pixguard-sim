@@ -216,7 +216,7 @@ does not inflate scores. All tabular detectors are sub-millisecond on this set,
 so each detector's pre-deadline fraction tracks its recall — the deadline metric
 discriminates by latency only under a genuinely slow detector (E8), not here.
 
-### 3.5 E6: cross-generator transfer (the non-circularity check)
+### 3.5 E6: cross-generator transfer
 
 A random forest on the shared schema features, trained on one generator and
 tested on another:

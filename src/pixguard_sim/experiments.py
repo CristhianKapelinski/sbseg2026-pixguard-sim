@@ -195,7 +195,7 @@ def experiment_e3(cfg: PipelineConfig) -> dict[str, Any]:
 
     Trains and evaluates the tabular baselines and the rule floor on each Tide
     split through a checksum-verified adapter. Under 0.10-0.19% illicit ratios
-    the numbers are honestly sub-perfect and spread out, which is the
+    the results vary across generators and task difficulty, which is the
     credibility signal: detectors do not trivially reach 1.00.
     """
     logger.info("=== E3: real Tide HI/LI cross-generator ===")
@@ -226,7 +226,7 @@ def experiment_e5(cfg: PipelineConfig) -> dict[str, Any]:
 
     Fits LR/RF/GB/XGBoost on pix-fraud-br's own engineered features (the same
     signal the prior art used) and reports PR-AUC against the published values
-    as the strongest non-circularity check, then scores the deadline metric.
+    as the cross-generator transfer test, then scores the deadline metric.
     """
     logger.info("=== E5: pix-fraud-br prior-art reproduction ===")
     frame = _load_pix_fraud_br(cfg)

@@ -41,7 +41,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 | **RAM** | < 1 GB for the in-repo experiments (E1/E2/E4); ~6 GB peak for the cross-generator runs (E3/E5/E6) on a 400k-row subsample. |
 | **Disk** | `.venv` after `uv sync`: ~1.1 GB. Optional third-party datasets (cross-generator claim only): ~1.8 GB (Tide) + ~130 MB (pix-fraud-br), fetched outside the repo. |
 | **GPU** | **Not needed.** The whole tabular pipeline runs on CPU. A CUDA GPU only accelerates the optional GraphSAGE (E7) and LLM-latency (E8) baselines, both of which fall back to CPU. |
-| **Reference machine** | 6-core/12-thread x86-64 CPU · 30 GB RAM · single CUDA GPU · Ubuntu 24.04 · Python 3.13. All times in this README were measured here. |
+| **Reference machine** | 6-core/12-thread x86-64 CPU · 32 GB RAM · single CUDA GPU · Ubuntu 24.04 · Python 3.13. All times in this README were measured here. |
 
 ---
 
@@ -69,9 +69,9 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [
 ## Installation
 
 ```bash
-# 1. Clone the repository (anonymous review: clone the anonymized mirror linked in the paper,
-#    https://anonymous.4open.science/r/pixguard-sim, or download its ZIP)
-git clone <REPOSITORY-URL> pixguard-sim && cd pixguard-sim
+# 1. Clone the repository
+git clone https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim.git pixguard-sim
+cd pixguard-sim
 
 # 2. Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -110,7 +110,7 @@ This confirms the harness runs end to end and writes a real, inspectable `result
 
 ## Experiments
 
-Each claim below is **one command**. The in-repo claims default to a **fast** variant (a few seconds, reduced event count and bootstrap resamples); pass `--full` for the paper's full configuration. The cross-generator claim is gated behind a separate script and downloads ~2 GB of third-party data — reviewers short on time or disk may instead inspect the pre-computed `results/e3.json`, `results/e5.json`, `results/e6.json`.
+Each claim below is **one command**. The in-repo claims default to a **fast** variant (a few seconds, reduced event count and bootstrap resamples); pass `--full` for the paper's full configuration. The cross-generator claim is gated behind a separate script and downloads ~2 GB of third-party data — reviewers short on time or disk may instead inspect the committed `results/published/*.json`, which are the exact outputs behind every number in the paper.
 
 | Claim | Paper experiment(s) | Data | Main? |
 |---|---|---|---|
@@ -146,7 +146,7 @@ Each claim below is **one command**. The in-repo claims default to a **fast** va
 
 ### Claim #3 — Cross-generator credibility on three independently-authored generators
 
-**Description.** The harness transfers to two real released generators with no code change, and the numbers stay honestly sub-perfect and spread with difficulty — never a uniform 1.00 (C3). E5 reproduces the pix-fraud-br prior-art XGBoost baseline within tolerance; E3 shows detectors dropping sharply on rare-illicit Tide; E6 shows cross-generator transfer collapsing (the non-circularity check).
+**Description.** The same harness runs on two independently released generators through adapters. E5 reproduces the pix-fraud-br prior-art XGBoost baseline within tolerance; E3 measures the decline on rare-illicit Tide; and E6 quantifies the loss under cross-generator transfer.
 
 ```bash
 ./scripts/exp_cross_generator.sh        # fetches ~2 GB of public data on first run
@@ -154,9 +154,9 @@ Each claim below is **one command**. The in-repo claims default to a **fast** va
 
 - **Expected time:** ~13 min once the data is local (measured: 773 s for the three experiments); the first run also downloads ~2 GB. Requires the `datasets` extra (the script invokes `uv run --extra datasets`).
 - **Expected resources:** ~6 GB RAM peak, ~2 GB disk for the downloads (outside the repo).
-- **Expected result (in `results/e3.json`, `results/e5.json`, `results/e6.json`):** on pix-fraud-br, XGBoost reaches PR-AUC 0.935 (matching the dataset's published ~0.865 baseline within tolerance, different splits/features); on rare-illicit Tide the best PR-AUC drops to ~0.52; cross-generator transfer collapses (in-repo → pix-fraud-br PR-AUC 0.016, pix-fraud-br → in-repo 0.071) against 0.84–0.99 in-distribution.
+- **Expected result (in `results/published/e3.json`, `e5.json`, `e6.json`):** on pix-fraud-br, XGBoost reaches PR-AUC 0.935; the dataset's own published baseline reports 0.865 on different splits and features, so the two are not directly comparable. On rare-illicit Tide the best PR-AUC drops to ~0.52. Cross-source transfer collapses (ours → pix-fraud-br PR-AUC 0.016, pix-fraud-br → ours 0.071) against 0.84–0.99 in-distribution.
 
-> Reviewers may skip the run and inspect the pre-computed `results/*.json` plus `DOCUMENTATION.md`, which records every command and its real captured output.
+> Reviewers may skip the run and inspect the committed `results/published/*.json` plus `DOCUMENTATION.md`, which records every command and its real captured output.
 
 ---
 

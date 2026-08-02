@@ -1,0 +1,18 @@
+LDD image-generation prompt for PixGuard-Sim pipeline figure (figs/pipeline.pdf)
+
+Frame: ~4:1 aspect ratio, flat vector illustration, clean academic-diagram style.
+No bullet lists, no emoji, no icons — use plain labelled boxes and arrows.
+
+Left-to-right flow: four labelled boxes connected by arrows:
+1. "Generators" (grey box) — three sub-labels inside: "In-house synthetic", "Tide HI/LI", "pix-fraud-br"
+2. "Adapters" (blue box) — one sub-label: "Normalized Pix-native event schema"
+3. "Detector interface" (green box) — two sub-labels: "Tabular (LR/RF/XGB)", "LLM (Qwen 2.5)"
+4. "Deadline-aware scorer" (orange box) — three sub-labels stacked: "Batch metrics + CIs", "Pre-deadline flag fraction", "Per-scenario recall"
+
+Below the scorer, a small output badge: "results/*.json"
+
+Colours: muted academic palette (#E8E8E8 grey, #D6EAF8 blue, #D5F5E3 green, #FDEBD0 orange). Black text on all boxes. Arrow colour: #555555.
+
+Top-right corner: small system-name badge "PixGuard-Sim".
+
+Font: sans-serif, title case on box labels, sentence case on sub-labels. No gradients, no shadows.

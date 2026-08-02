@@ -21,6 +21,7 @@ comparison across generators is like-for-like.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 
 import numpy as np
@@ -36,7 +37,7 @@ def _account_id(value: object, modulo: int = 10**8) -> int:
     try:
         return int(value) % modulo
     except (TypeError, ValueError):
-        return abs(hash(str(value))) % modulo
+        return int(hashlib.sha256(str(value).encode()).hexdigest(), 16) % modulo
 
 
 def _synth_signals(

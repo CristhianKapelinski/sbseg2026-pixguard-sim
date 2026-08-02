@@ -50,13 +50,14 @@ class Detector(ABC):
         """Return the decision latency per event, relative to its initiation.
 
         The decision deadline is a window measured from each event's own
-        initiation (``t_init_ms``). This method returns the latency *since
-        initiation*: the per-event inference latency the detector actually
-        exhibited when it scored the frame. The value is whatever
-        :func:`measure_score_latency_ms` last recorded on
-        :attr:`measured_latency_ms`; if scoring has not yet been timed it falls
-        back to ``0.0`` (instantaneous), never to a hand-set budget.
+        initiation (``t_init_ms``). If the detector recorded per-event latencies
+        (e.g. an LLM scoring one event at a time), those are returned. Otherwise
+        the mean per-event latency from the last
+        :func:`measure_score_latency_ms` call is broadcast to all events.
         """
+        per_event = getattr(self, "per_event_latencies_ms", None)
+        if per_event is not None and len(per_event) == len(frame):
+            return per_event.astype("float64")
         return np.full(len(frame), float(self.measured_latency_ms))
 
     # Mean per-event scoring wall-clock latency (ms), set by

@@ -218,9 +218,8 @@ class LLMDetector(Detector):
         """Score each event one at a time, timing per-event generation latency.
 
         The per-event wall-clock latency of each generation is recorded on
-        :attr:`per_event_latencies_ms`; the harness separately divides total
-        scoring time by N for the deadline metric, which matches the mean of
-        this array.
+        :attr:`per_event_latencies_ms` and used directly by the harness's
+        pre-deadline metric.
         """
         self._ensure_loaded()
         scores = np.empty(len(frame), dtype="float64")
