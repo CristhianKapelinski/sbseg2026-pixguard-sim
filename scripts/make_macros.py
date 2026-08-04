@@ -14,6 +14,15 @@ import sys
 from pathlib import Path
 
 
+
+def _thousands(n: int) -> str:
+    """Group digits with a thin space from five digits up; four-digit numbers stay solid.
+
+    Mixing "1\\,000" with a solid "1066" inside one paper reads as a typo, so the rule
+    is applied here rather than by hand in the prose.
+    """
+    return f"{n:,}".replace(",", "\\,") if n >= 10000 else str(n)
+
 def main() -> int:
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("results")
 
@@ -35,11 +44,11 @@ def main() -> int:
         return next(o for o in items if o.get(key) == val)
 
     # -- in-house PIX layer counts (E1) --
-    cmd("Nevents", f"{e1['n_events']:,}".replace(",", "\\,"))
+    cmd("Nevents", _thousands(e1['n_events']))
     cmd("Nfraud", str(e1["n_fraud"]))
     cmd("Frate", f"{100 * e1['n_fraud'] / e1['n_events']:.2f}\\%")
     e1d = {o["detector"]: o for o in e1["detectors"]}
-    cmd("Neval", f"{e1d['rf_fast']['batch']['n_eval']:,}".replace(",", "\\,"))
+    cmd("Neval", _thousands(e1d['rf_fast']['batch']['n_eval']))
     cmd("Nevalfraud", str(e1d["rf_fast"]["batch"]["n_fraud"]))
 
     # E1 tabular detectors on the in-house layer (measured latency is sub-us for
@@ -70,7 +79,7 @@ def main() -> int:
     # E8 deadline metric under real measured latency: a reasoning LLM vs a fast
     # tabular RF on the same fraud-enriched subsample.
     e8d = {o["detector"]: o for o in e8["detectors"]}
-    cmd("EightN", f"{e8['n_subsample']:,}".replace(",", "\\,"))
+    cmd("EightN", _thousands(e8['n_subsample']))
     cmd("EightFraud", str(e8["n_fraud_subsample"]))
     cmd("EightBase", f"{100 * e8['operational_base_rate']:.2f}\\%")
 
@@ -99,7 +108,7 @@ def main() -> int:
     cmd("ErfPre", f3(prrf["1000"]["value"]))
 
     # E5 pix-fraud-br reproduction (PIX-native external anchor).
-    cmd("PfbN", f"{e5['n_events']:,}".replace(",", "\\,"))
+    cmd("PfbN", _thousands(e5['n_events']))
     cmd("PfbRate", f"{100 * e5['fraud_rate']:.2f}\\%")
     e5d = {o["detector"]: o for o in e5["detectors"]}
     for det, pre in (("xgb_fast", "PfbXgb"), ("rf_fast", "PfbRf")):
