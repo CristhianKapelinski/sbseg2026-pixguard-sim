@@ -1,18 +1,98 @@
-LDD image-generation prompt for PixGuard-Sim pipeline figure (figs/pipeline.pdf)
+LDD PROMPT — PixGuard-Sim pipeline banner (paper Figure 1, figs/pipeline.pdf)
 
-Frame: ~4:1 aspect ratio, flat vector illustration, clean academic-diagram style.
-No bullet lists, no emoji, no icons — use plain labelled boxes and arrows.
+Paste the block below into an image model verbatim. It is written to be
+deterministic: it specifies the finished diagram rather than a mood, so two
+runs should produce essentially the same figure. The four stages match the
+four the paper names in Section 3, and every badge number is a real number
+from the paper (fifteen schema fields, five detectors, the measured reasoning
+latency range).
 
-Left-to-right flow: four labelled boxes connected by arrows:
-1. "Generators" (grey box) — three sub-labels inside: "In-house synthetic", "Tide HI/LI", "pix-fraud-br"
-2. "Adapters" (blue box) — one sub-label: "Normalized Pix-native event schema"
-3. "Detector interface" (green box) — two sub-labels: "Tabular (LR/RF/XGB)", "LLM (Qwen 2.5)"
-4. "Deadline-aware scorer" (orange box) — three sub-labels stacked: "Batch metrics + CIs", "Pre-deadline flag fraction", "Per-scenario recall"
+--------------------------------------------------------------------------
 
-Below the scorer, a small output badge: "results/*.json"
+FRAME
+Ultrawide horizontal banner, aspect ratio 5:1, 3840 x 768 pixels, pure white
+background (#FFFFFF). Flat two-dimensional vector artwork only.
 
-Colours: muted academic palette (#E8E8E8 grey, #D6EAF8 blue, #D5F5E3 green, #FDEBD0 orange). Black text on all boxes. Arrow colour: #555555.
+ART STYLE AND EXACT PALETTE
+Monoline technical wireframe: every shape is a thin outline of uniform 1.5 px
+weight with flat fills and no texture. Exactly four colours, each with one role
+and no other use:
+  - ink navy #1F2A44 — every outline, every arrow, every piece of text.
+  - pale slate #E7ECF3 — the fill of every stage panel and every sub-box.
+  - soft blue #C3D4E8 — the fill of the data chips that ride the arrows, ONLY.
+  - signal amber #E8A33D — the ONE accent colour. It may appear ONLY on the
+    clock glyph and the deadline tick inside stage 4, and nowhere else.
 
-Top-right corner: small system-name badge "PixGuard-Sim".
+NO-LIST (strict)
+No gradients. No drop shadows. No glows. No 3D, no isometric or 2.5D
+projection, no perspective, no tilted planes. No photorealism. No people, no
+faces, no hands. No logos, no brand marks, no flags. No background grid, no
+dotted paper, no outer frame around the banner. No full sentences anywhere:
+every label is 1 to 3 words or a short number, in a clean geometric sans-serif,
+always horizontal.
 
-Font: sans-serif, title case on box labels, sentence case on sub-labels. No gradients, no shadows.
+SCENE SKELETON
+Four rectangular stage panels of EQUAL height and equal width, in ONE
+horizontal row, left to right, evenly spaced, corners rounded at 8 px. Between
+consecutive panels runs a single thin ink-navy arrow pointing right with a
+small solid triangular head. One small labelled data chip sits centred on each
+of the three arrows, drawn as a tiny rounded rectangle filled soft blue. Three
+small cylinders feed stage 1 from the left; they are the ONLY elements off the
+main row, stacked vertically at the far left, each joined to stage 1 by its own
+short thin arrow.
+
+THE THREE FEEDER SOURCES (far left, off-row, stacked top to bottom)
+Each is a small horizontal cylinder outlined ink navy, filled pale slate, with
+its name set below it:
+  top    — "PixGuard-Sim"
+  middle — "Tide HI/LI"
+  bottom — "pix-fraud-br"
+
+STAGE 1 — panel title in CAPS at the top of the panel: "ADAPTERS"
+Inside: three small stacked rounded sub-boxes, outlined ink navy and filled
+pale slate, one per incoming source, converging by short thin arrows into a
+single narrow vertical bar on the panel's right edge labelled "one schema". A
+floating pill badge overlaps the panel's top-right corner, outlined ink navy on
+white, reading "15 fields".
+
+STAGE 2 — panel title in CAPS: "SCENARIO LIBRARY"
+Inside: four small rounded sub-boxes in a 2 x 2 arrangement, labelled exactly
+"takeover", "mule chain", "MED refund", "coercion". Inside the "MED refund" box
+sits a short chain of three tiny circles joined left to right by two tiny
+arrows, showing multi-hop layering. The "coercion" box is drawn with a dashed
+outline; nothing else in the figure uses a dashed outline.
+
+STAGE 3 — panel title in CAPS: "DETECTOR INTERFACE"
+Inside: one wide rounded slot outlined ink navy and filled pale slate, labelled
+"pluggable", with a small notch cut into its left edge so it reads as a socket.
+Two tiny stacked rounded chips sit to its right, labelled "tabular" and
+"graph". A floating pill badge overlaps the panel's top-right corner, outlined
+ink navy on white, reading "5 detectors".
+
+STAGE 4 — panel title in CAPS: "DEADLINE SCORER"
+Inside: a horizontal gauge bar spanning most of the panel width, outlined ink
+navy and filled pale slate, with a single vertical tick in signal amber about
+two thirds along it, labelled "deadline" beneath. To the left of the gauge sits
+a small clock glyph in signal amber, appearing EXACTLY ONCE in the whole
+figure. Below the gauge, two short stacked labels read "in time" and "too
+late". A floating pill badge overlaps the panel's top-right corner, outlined
+ink navy on white, reading "1066-1979 ms".
+
+THE THREE DATA CHIPS ON THE ARROWS (left to right)
+  arrow 1 to 2 — chip reading "events"
+  arrow 2 to 3 — chip reading "features"
+  arrow 3 to 4 — chip reading "scores + latency"
+Each chip appears EXACTLY ONCE and no chip repeats a label used elsewhere.
+
+UNIQUENESS CLAUSES
+The clock glyph appears EXACTLY ONCE, in stage 4 only. Signal amber appears
+EXACTLY TWICE, on that clock glyph and on the deadline tick. Each of the four
+stage panels appears EXACTLY ONCE and none is duplicated or mirrored. Each of
+the three feeder cylinders appears EXACTLY ONCE.
+
+COMPOSITION CLOSE
+The four stage panels are vertically centred on one common horizontal axis with
+generous, equal spacing. Leave at least 8% empty margin on all four sides.
+Every label is horizontal; no rotated or vertical text anywhere. The figure
+must stay legible and must survive greyscale printing at 15 cm width, so the
+fills must differ in lightness and not in hue alone.

@@ -87,6 +87,24 @@ def _ecdf(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return x, y
 
 
+def _label(ax, x: float, y: float, text: str, colour: str, dy: int = 2) -> None:
+    """Annotate at ``(x, y)`` without letting the text leave the axes.
+
+    A label anchored past the middle of a (log) x axis has no room to its
+    right, so it is right-aligned and grows leftwards instead. Call this only
+    after the axis scale and limits are final, or the bounds it reads are not
+    the ones the reader sees.
+    """
+    x0, x1 = (np.log10(v) for v in ax.get_xlim())
+    frac = (np.log10(max(x, 10 ** x0)) - x0) / (x1 - x0)
+    right = frac > 0.5
+    ax.annotate(
+        text, xy=(x, y), xytext=(-4 if right else 4, dy),
+        textcoords="offset points", ha="right" if right else "left",
+        va="bottom", fontsize=5.5, color=colour,
+    )
+
+
 def _style() -> None:
     plt.rcParams.update(
         {
@@ -221,6 +239,7 @@ def fig_dataset(
     # survives the shared schema.
     stats = json.loads(stats_path.read_text(encoding="utf-8"))
     recs = [stats[k].get("as_scored", stats[k]) for k, _, _ in SOURCE_ORDER]
+    pending: list[tuple[float, float, str, str]] = []
     for i, (rec, (_, label, colour)) in enumerate(
         zip(recs, SOURCE_ORDER, strict=True)
     ):
@@ -232,8 +251,7 @@ def fig_dataset(
                  alpha=0.85, solid_capstyle="butt")
         ax3.plot(a["q50"], y, marker="|", color="white", markersize=5,
                  markeredgewidth=1.2, linestyle="none")
-        ax3.annotate(f"{a['q50']:,.0f}", xy=(a["q95"], y), xytext=(4, 2),
-                     textcoords="offset points", fontsize=5.5, color=colour)
+        pending.append((a["q95"], y, f"{a['q50']:,.0f}", colour))
     ax3.set_yticks(range(len(recs)))
     ax3.set_yticklabels([lab for _, lab, _ in reversed(SOURCE_ORDER)], fontsize=6)
     ax3.set_xscale("log")
@@ -241,6 +259,8 @@ def fig_dataset(
     ax3.set_xlabel("amount (log scale); bar q25-q75, median labelled")
     ax3.grid(True, axis="x")
     ax3.grid(False, axis="y")
+    for lx, ly, text, colour in pending:  # once the axis bounds are final
+        _label(ax3, lx, ly, text, colour, dy=3)
     ax3.set_title("(c) amount scale per source")
 
     # (d) degree distribution of the FULL account graph, log-log.

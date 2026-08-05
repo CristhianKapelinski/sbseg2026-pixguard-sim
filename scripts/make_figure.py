@@ -42,6 +42,23 @@ def _ecdf(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return x, np.arange(1, x.size + 1) / x.size
 
 
+def _label(ax, x: float, y: float, text: str, colour: str, dy: int = 2) -> None:
+    """Annotate at ``(x, y)`` without letting the text leave the axes.
+
+    A label anchored past the middle of a (log) x axis has no room to its
+    right, so it is right-aligned and grows leftwards instead; one anchored in
+    the left half grows rightwards as usual.
+    """
+    x0, x1 = (np.log10(v) for v in ax.get_xlim())
+    frac = (np.log10(max(x, 10 ** x0)) - x0) / (x1 - x0)
+    right = frac > 0.5
+    ax.annotate(
+        text, xy=(x, y), xytext=(-4 if right else 4, dy),
+        textcoords="offset points", ha="right" if right else "left",
+        va="bottom", fontsize=5.5, color=colour,
+    )
+
+
 def main(argv: list[str]) -> int:
     results_dir = Path(argv[1]) if len(argv) > 1 else Path("results")
     out = Path(argv[2]) if len(argv) > 2 else Path("paper/figs/fig_results.pdf")
@@ -77,12 +94,11 @@ def main(argv: list[str]) -> int:
             ax1.axvline(d, color="#555", linewidth=0.6, linestyle="--", alpha=0.6)
             ax1.annotate(f"{d}", xy=(d, 1.13 if i % 2 else 1.03), xytext=(1, 0),
                          textcoords="offset points", fontsize=5.5, color="#555")
-    ax1.annotate(f"{lo:.0f}–{hi:.0f} ms", xy=(np.median(window), 0.45),
-                 xytext=(8, -15), textcoords="offset points", fontsize=6,
-                 color="#0072B2")
     ax1.set_xscale("log")
     ax1.set_xlim(10, 12000)
     ax1.set_ylim(-0.03, 1.25)
+    # After the scale and limits, so the placement rule reads real bounds.
+    _label(ax1, 90.0, 0.80, f"{lo:.0f}–{hi:.0f} ms", "#0072B2")  # empty upper left
     ax1.set_xlabel("time from initiation (ms, log)")
     ax1.set_ylabel("share settled")
     ax1.grid(True, linestyle=":", linewidth=0.4)
@@ -97,6 +113,7 @@ def main(argv: list[str]) -> int:
             ("llm_terse", "Terse LM", "#D55E00", "s"),
             ("llm_reasoning", "Reasoning LM", "#CC79A7", "o")]
     by_name = {d["detector"]: d for d in e8["detectors"]}
+    pending: list[tuple[float, float, str, str]] = []
     for i, (key, label, colour, marker) in enumerate(rows):
         det = by_name[key]
         stats = det.get("per_event_latency_stats_ms")
@@ -106,16 +123,14 @@ def main(argv: list[str]) -> int:
                      linewidth=4.5, solid_capstyle="butt", alpha=0.45)
             ax2.plot(stats["median_ms"], ypos, marker=marker, color=colour,
                      markersize=4, linestyle="none")
-            ax2.annotate(f"{stats['min_ms']:.0f}–{stats['max_ms']:.0f} ms",
-                         xy=(stats["max_ms"], ypos), xytext=(5, 2),
-                         textcoords="offset points", fontsize=5.5, color=colour)
+            pending.append((stats["max_ms"], ypos,
+                            f"{stats['min_ms']:.0f}–{stats['max_ms']:.0f} ms", colour))
         else:
             mean = float(det["measured_mean_latency_ms"])
             ax2.plot(max(mean, 1e-3), ypos, marker=marker, color=colour,
                      markersize=4, linestyle="none")
-            ax2.annotate(f"mean {mean:.3f} ms (spread not published)",
-                         xy=(max(mean, 1e-3), ypos), xytext=(5, 2),
-                         textcoords="offset points", fontsize=5.5, color=colour)
+            pending.append((max(mean, 1e-3), ypos,
+                            f"mean {mean:.3f} ms (spread not published)", colour))
     ax2.set_yticks(range(len(rows)))
     ax2.set_yticklabels([lab for _, lab, _, _ in reversed(rows)], fontsize=6)
     ax2.set_xscale("log")
@@ -124,6 +139,8 @@ def main(argv: list[str]) -> int:
     ax2.set_xlabel("measured decision latency (ms, log)")
     ax2.grid(True, axis="x", linestyle=":", linewidth=0.4)
     ax2.set_axisbelow(True)
+    for lx, ly, text, colour in pending:  # placed once the axis bounds are final
+        _label(ax2, lx, ly, text, colour, dy=5)
     ax2.legend(loc="lower left", framealpha=0.9, borderpad=0.3)
     ax2.set_title("(b) decision latency vs. that window")
 
