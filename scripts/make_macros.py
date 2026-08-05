@@ -156,6 +156,29 @@ def main() -> int:
         if g_t:
             cmd("GnnTideHiPRAUC", f3(g_t["batch"]["pr_auc"]))
 
+    # -- dataset description (dataset_stats.json, written by
+    # make_source_stats.py). These describe the streams the detectors were
+    # scored on rather than any detector's output.
+    stats_path = root / "dataset_stats.json"
+    if stats_path.exists():
+        s = json.loads(stats_path.read_text(encoding="utf-8"))
+        w = s["ours"]["settlement_window_ms"]
+        cmd("SettleMin", _thousands(int(round(w["min"]))))
+        cmd("SettleMax", _thousands(int(round(w["max"]))))
+        cmd("SettleMed", _thousands(int(round(w["q50"]))))
+        # Median transfer amount per source, on the slice the harness scores.
+        # The amount is the one real feature that survives the shared schema,
+        # so its scale is part of why a score does not transfer across sources.
+        for key, name in (("ours", "OursMedAmt"), ("pix_fraud_br", "PfbMedAmt"),
+                          ("tide_hi", "TideHiMedAmt")):
+            rec = s[key].get("as_scored", s[key])
+            cmd(name, _thousands(int(round(rec["amount"]["q50"]))))
+        # Mean account degree, on that same slice: the neighbourhood a graph
+        # detector has to aggregate over.
+        for key, name in (("ours", "OursDeg"), ("tide_hi", "TideHiDeg")):
+            rec = s[key].get("as_scored", s[key])
+            cmd(name, f"{rec['mean_degree']:.0f}")
+
     print("\n".join(lines))
     return 0
 

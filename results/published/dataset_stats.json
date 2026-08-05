@@ -1,0 +1,152 @@
+{
+  "ours": {
+    "amount": {
+      "max": 31104.82,
+      "mean": 172.70630456802627,
+      "min": 1.36,
+      "q05": 19.26,
+      "q25": 51.34,
+      "q50": 101.5,
+      "q75": 200.03,
+      "q95": 534.1659999999999
+    },
+    "density": 0.005060890222555639,
+    "illicit_rate": 0.011784470192949082,
+    "label": "PixGuard-Sim",
+    "mean_degree": 20.2385,
+    "n_accounts": 4000,
+    "n_events": 40477,
+    "n_fraud": 477,
+    "note": "generated under configs/default.json",
+    "settlement_window_ms": {
+      "max": 1999.0,
+      "mean": 1148.6618820564765,
+      "min": 300.0,
+      "q05": 382.0,
+      "q25": 724.0,
+      "q50": 1147.0,
+      "q75": 1573.0,
+      "q95": 1915.0
+    }
+  },
+  "pix_fraud_br": {
+    "amount": {
+      "max": 92563652.9,
+      "mean": 913174.8904259446,
+      "min": 0.01,
+      "q05": 23474.05350000001,
+      "q25": 218877.6975,
+      "q50": 491799.28500000003,
+      "q75": 979746.8175,
+      "q95": 2676834.0379999992
+    },
+    "as_scored": {
+      "amount": {
+        "max": 92394966.67,
+        "mean": 915038.4428210999,
+        "min": 0.01,
+        "q05": 23786.861000000008,
+        "q25": 218839.96,
+        "q50": 492097.475,
+        "q75": 980363.315,
+        "q95": 2694163.7844999977
+      },
+      "density": 2.932361489228414e-06,
+      "illicit_rate": 0.0076875,
+      "label": "pix-fraud-br",
+      "mean_degree": 1.531628120692296,
+      "n_accounts": 522320,
+      "n_events": 400000,
+      "n_fraud": 3075,
+      "note": "label-stratified subsample of 400,000 the harness scores"
+    },
+    "density": 4.652791739577968e-06,
+    "illicit_rate": 0.007688,
+    "label": "pix-fraud-br",
+    "mean_degree": 4.3140638481449525,
+    "n_accounts": 927200,
+    "n_events": 2000000,
+    "n_fraud": 15376,
+    "note": "released Hugging Face set, full frame"
+  },
+  "tide_hi": {
+    "amount": {
+      "max": 1000000.0,
+      "mean": 535.40581452463,
+      "min": 0.0,
+      "q05": 7.4,
+      "q25": 26.21,
+      "q50": 66.25,
+      "q75": 180.0,
+      "q95": 1650.0
+    },
+    "as_scored": {
+      "amount": {
+        "max": 695600.0,
+        "mean": 535.0251319179372,
+        "min": 0.0,
+        "q05": 7.45,
+        "q25": 26.31,
+        "q50": 66.23,
+        "q75": 180.0,
+        "q95": 1657.2859999999962
+      },
+      "density": 0.001058582497960674,
+      "illicit_rate": 0.00188,
+      "label": "Tide-HI",
+      "mean_degree": 29.100432868938924,
+      "n_accounts": 27491,
+      "n_events": 400000,
+      "n_fraud": 752,
+      "note": "label-stratified subsample of 400,000 the harness scores"
+    },
+    "density": 0.01997823747844931,
+    "illicit_rate": 0.0018800358220014918,
+    "label": "Tide-HI",
+    "mean_degree": 550.6801378559768,
+    "n_accounts": 27565,
+    "n_events": 7589749,
+    "n_fraud": 14269,
+    "note": "released Zenodo record, transaction edges only"
+  },
+  "tide_li": {
+    "amount": {
+      "max": 1000000.0,
+      "mean": 532.8572300564684,
+      "min": 0.0,
+      "q05": 7.4,
+      "q25": 26.19,
+      "q50": 66.17,
+      "q75": 180.0,
+      "q95": 1620.0
+    },
+    "as_scored": {
+      "amount": {
+        "max": 1000000.0,
+        "mean": 524.5097278502246,
+        "min": 0.0,
+        "q05": 7.36,
+        "q25": 26.07,
+        "q50": 66.02,
+        "q75": 180.0,
+        "q95": 1600.0
+      },
+      "density": 0.0010588135790554477,
+      "illicit_rate": 0.0010425,
+      "label": "Tide-LI",
+      "mean_degree": 29.10360884749709,
+      "n_accounts": 27488,
+      "n_events": 400000,
+      "n_fraud": 417,
+      "note": "label-stratified subsample of 400,000 the harness scores"
+    },
+    "density": 0.02016703661193426,
+    "illicit_rate": 0.0010417389096876093,
+    "label": "Tide-LI",
+    "mean_degree": 555.1783508899382,
+    "n_accounts": 27530,
+    "n_events": 7642030,
+    "n_fraud": 7961,
+    "note": "released Zenodo record, transaction edges only"
+  }
+}
