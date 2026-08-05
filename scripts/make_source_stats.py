@@ -168,6 +168,36 @@ def main(argv: list[str]) -> int:
         )
         print(f"{label} done")
 
+    # Feasibility against the events' own clock. The deadline metric compares a
+    # detector's latency to a chosen d; this instead compares it to the moment
+    # each transfer becomes irrevocable, which removes the free parameter. Only
+    # per-detector latency statistics are published, not the per-event vector,
+    # so what is computed here is a bound: the share of frauds still blockable
+    # if every decision took the detector's fastest observed time, and the share
+    # if every decision took its slowest.
+    e8_path = out.parent / "e8.json"
+    if e8_path.exists():
+        d = pd.read_csv(events_csv, usecols=["t_init_ms", "t_settle_ms", "is_fraud"])
+        window = (d.t_settle_ms - d.t_init_ms).to_numpy(dtype=float)
+        window = window[d.is_fraud.to_numpy() == 1]
+        e8 = json.loads(e8_path.read_text(encoding="utf-8"))
+        feas = {}
+        for det in e8["detectors"]:
+            s = det.get("per_event_latency_stats_ms")
+            lo = s["min_ms"] if s else float(det["measured_mean_latency_ms"])
+            hi = s["max_ms"] if s else float(det["measured_mean_latency_ms"])
+            feas[det["detector"]] = {
+                "latency_min_ms": lo,
+                "latency_max_ms": hi,
+                "blockable_at_best_case": float((window > lo).mean()),
+                "blockable_at_worst_case": float((window > hi).mean()),
+            }
+        sources["feasibility_vs_settlement"] = {
+            "n_fraud_events": int(window.size),
+            "note": "bound from published latency min/max; per-event pairing not published",
+            "detectors": feas,
+        }
+
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(sources, indent=2, sort_keys=True), encoding="utf-8")
     print(f"wrote {out}")

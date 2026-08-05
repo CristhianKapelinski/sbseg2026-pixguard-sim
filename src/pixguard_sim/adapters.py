@@ -41,22 +41,33 @@ def _account_id(value: object, modulo: int = 10**8) -> int:
 
 
 def _synth_signals(
-    is_fraud: np.ndarray, seed: int
+    is_fraud: np.ndarray,
+    seed: int,
+    device_prob_fraud: float = 0.62,
+    device_prob_legit: float = 0.06,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Synthesize PIX-native binary signals a foreign schema does not carry.
 
     The signals (device change, new payee, velocity) are drawn as a fixed,
     label-correlated noise process so the adapted stream is realistically noisy
-    rather than separable from the label alone. This is deliberately *not* the
-    logic any detector keys on, so scoring on an adapted stream is not circular.
+    rather than separable from the label alone.
+
+    Every binary signal must be reachable from BOTH classes. Drawing one only
+    for fraud makes it a deterministic label indicator: a detector reads the bit
+    and inherits the label, and the score then measures the injection rather
+    than the data. The device-change rates therefore default to the same pair
+    the in-repo generator uses for its own events.
 
     Returns:
         ``(device_changed, new_payee, payer_velocity_1h)`` arrays.
     """
     rng = np.random.default_rng(seed)
     n = len(is_fraud)
-    u = rng.random(n)
-    device_changed = ((is_fraud == 1) & (u < 0.45)).astype(int)
+    device_changed = np.where(
+        is_fraud == 1,
+        rng.random(n) < device_prob_fraud,
+        rng.random(n) < device_prob_legit,
+    ).astype(int)
     new_payee = np.where(
         is_fraud == 1, (rng.random(n) < 0.7), (rng.random(n) < 0.2)
     ).astype(int)

@@ -42,3 +42,19 @@ def device_changed(rng: np.random.Generator, prob: float) -> int:
 def new_payee(rng: np.random.Generator, prob: float) -> int:
     """Draw the new-payee signal with the given probability."""
     return int(rng.random() < prob)
+
+
+# Trailing-hour transfer counts share one support across every scenario. Drawing
+# each scenario from its own disjoint integer range would make a threshold on
+# this column separate fraud from legitimate traffic exactly, and a detector
+# would then be scored on the generator's bookkeeping instead of on behaviour.
+VELOCITY_CAP: int = 12
+
+
+def payer_velocity(rng: np.random.Generator, rate: float) -> int:
+    """Draw a trailing-hour transfer count with the given mean rate.
+
+    Poisson over a common support: scenarios differ in how busy the payer is,
+    not in which counts are reachable at all.
+    """
+    return int(min(rng.poisson(rate), VELOCITY_CAP))

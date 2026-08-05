@@ -19,6 +19,7 @@ from pixguard_sim.scenarios._common import (
     resolve_payee_key,
     sample_amount,
     settle_time,
+    payer_velocity,
 )
 from pixguard_sim.schema import PixEvent
 
@@ -73,7 +74,7 @@ def generate_legit(
                 med_layer=0,
                 device_changed=device_changed(rng, cfg.device_change_prob_legit),
                 new_payee=is_new,
-                payer_velocity_1h=int(rng.integers(0, 4)),
+                payer_velocity_1h=payer_velocity(rng, 1.5),
                 is_remote_session=0,
                 coercion_flag=0,
             )

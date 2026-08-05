@@ -24,6 +24,7 @@ from pixguard_sim.scenarios._common import (
     resolve_payee_key,
     sample_amount,
     settle_time,
+    payer_velocity,
 )
 from pixguard_sim.schema import PixEvent
 
@@ -79,7 +80,7 @@ def generate_fake_med_refund(
                         rng, cfg.device_change_prob_fraud * decay
                     ),
                     new_payee=int(rng.random() < cfg.new_payee_prob_fraud * decay),
-                    payer_velocity_1h=int(rng.integers(1, 6)),
+                    payer_velocity_1h=payer_velocity(rng, 2.9),
                     is_remote_session=0,
                     coercion_flag=0,
                 )

@@ -18,6 +18,7 @@ from pixguard_sim.scenarios._common import (
     resolve_payee_key,
     sample_amount,
     settle_time,
+    payer_velocity,
 )
 from pixguard_sim.schema import PixEvent
 
@@ -59,7 +60,7 @@ def generate_account_takeover(
                 med_layer=0,
                 device_changed=device_changed(rng, cfg.device_change_prob_fraud),
                 new_payee=1,
-                payer_velocity_1h=int(rng.integers(2, 8)),
+                payer_velocity_1h=payer_velocity(rng, 4.3),
                 is_remote_session=1,
                 coercion_flag=0,
             )

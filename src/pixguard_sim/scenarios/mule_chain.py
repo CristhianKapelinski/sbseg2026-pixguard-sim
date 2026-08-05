@@ -19,6 +19,7 @@ from pixguard_sim.scenarios._common import (
     resolve_payee_key,
     sample_amount,
     settle_time,
+    payer_velocity,
 )
 from pixguard_sim.schema import PixEvent
 
@@ -78,7 +79,7 @@ def generate_mule_chain(
                         cfg.device_change_prob_fraud if layer == 0 else 0.1,
                     ),
                     new_payee=1 if layer == 0 else int(rng.random() < 0.5),
-                    payer_velocity_1h=int(rng.integers(3, 10)),
+                    payer_velocity_1h=payer_velocity(rng, 6.1),
                     is_remote_session=1 if layer == 0 else 0,
                     coercion_flag=0,
                 )

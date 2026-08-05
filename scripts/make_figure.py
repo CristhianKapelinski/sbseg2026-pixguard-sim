@@ -103,6 +103,8 @@ def main(argv: list[str]) -> int:
     ax1.set_ylabel("share settled")
     ax1.grid(True, linestyle=":", linewidth=0.4)
     ax1.set_axisbelow(True)
+    ax1.annotate(f"n={len(window):,} events", xy=(0.03, 0.97), xycoords="axes fraction",
+                 ha="left", va="top", fontsize=5.5, color="#333")
     ax1.set_title("(a) settlement window vs. deadlines")
 
     # Panel (b): measured decision latency on the same axis. A detector whose
@@ -142,6 +144,9 @@ def main(argv: list[str]) -> int:
     for lx, ly, text, colour in pending:  # placed once the axis bounds are final
         _label(ax2, lx, ly, text, colour, dy=5)
     ax2.legend(loc="lower left", framealpha=0.9, borderpad=0.3)
+    ax2.annotate(f"n={e8['n_subsample']:,} events, {e8['n_fraud_subsample']:,} fraud",
+                 xy=(0.03, 0.97), xycoords="axes fraction", ha="left", va="top",
+                 fontsize=5.5, color="#333")
     ax2.set_title("(b) decision latency vs. that window")
 
     # Panel (c): per-scenario recall, single-hop-trained (E2), with Wilson CIs.
