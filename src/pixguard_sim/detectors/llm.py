@@ -93,6 +93,15 @@ _LABELLED_PROB_RE = re.compile(
 )
 
 
+# The score given to a completion nothing could be read from. It sits at the
+# decision threshold, and the harness flags on ``score >= threshold``, so an
+# unparseable answer counts as a FLAG. That is worth knowing when reading a
+# recall of 1.000: it may be the model's verdict or it may be the fallback, and
+# only the unparsed count separates the two. The count is recorded per scoring
+# pass on :attr:`unparsed_count`.
+_UNPARSED_SCORE: float = 0.5
+
+
 def _parse_score(text: str) -> float:
     """Map an LLM completion to a fraud score in ``[0, 1]``.
 
@@ -126,7 +135,7 @@ def _parse_score(text: str) -> float:
         return 0.9
     if _NO_RE.search(snippet):
         return 0.1
-    return 0.5
+    return _UNPARSED_SCORE
 
 
 class LLMDetector(Detector):
@@ -138,6 +147,7 @@ class LLMDetector(Detector):
         name: str = "llm_qwen",
         inference_budget_ms: int = 0,
         max_new_tokens: int = 8,
+        min_new_tokens: int = 0,
         device: str | None = None,
         dtype: str = "bfloat16",
         reasoning: bool = False,
@@ -166,6 +176,13 @@ class LLMDetector(Detector):
         # Full per-event generation latency (ms), filled by ``score``. Lets the
         # caller report median/p95 rather than only the mean the harness times.
         self.per_event_latencies_ms: np.ndarray = np.empty(0)
+        self.unparsed_count: int = 0
+        # A token cap alone does not make a regime deliberate: asked to reason,
+        # this model often emits a bare verdict and stops, so the "reasoning"
+        # configuration collapses into the terse one and its latency with it.
+        # A floor makes the rationale mandatory, which is what an auditable
+        # decision needs, and is reported as the configuration it is.
+        self.min_new_tokens = int(min_new_tokens)
 
     def _ensure_loaded(self) -> None:
         """Load the tokenizer and model onto the accelerator once."""
@@ -200,6 +217,7 @@ class LLMDetector(Detector):
             out = self._model.generate(
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
+                min_new_tokens=self.min_new_tokens,
                 do_sample=False,
                 temperature=None,
                 top_p=None,
@@ -223,6 +241,7 @@ class LLMDetector(Detector):
         """
         self._ensure_loaded()
         scores = np.empty(len(frame), dtype="float64")
+        unparsed = 0
         lat = np.empty(len(frame), dtype="float64")
         import torch
 
@@ -234,10 +253,19 @@ class LLMDetector(Detector):
                 torch.cuda.synchronize()
             lat[i] = (time.perf_counter() - t0) * 1000.0
             scores[i] = _parse_score(answer)
+            if scores[i] == _UNPARSED_SCORE:
+                unparsed += 1
             if i < 3:
                 logger.info("LLM sample %d: answer=%r -> score=%.3f (%.1fms)",
                             i, answer, scores[i], lat[i])
         self.per_event_latencies_ms = lat
+        self.unparsed_count = int(unparsed)
+        if unparsed:
+            logger.warning(
+                "%s: %d of %d completions were unparseable and fell back to "
+                "%.2f, which the %s threshold counts as a flag",
+                self.name, unparsed, len(frame), _UNPARSED_SCORE, "0.5",
+            )
         logger.info(
             "LLMDetector scored %d events: mean=%.1fms median=%.1fms p95=%.1fms",
             len(lat), float(np.mean(lat)), float(np.median(lat)),

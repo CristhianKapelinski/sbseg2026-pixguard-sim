@@ -1,31 +1,55 @@
 {
+  "feasibility_vs_settlement": {
+    "detectors": {
+      "llm_reasoning": {
+        "blockable_at_best_case": 1.0,
+        "blockable_at_worst_case": 0.7261410788381742,
+        "latency_max_ms": 726.0937829996692,
+        "latency_min_ms": 96.54581400172901
+      },
+      "llm_terse": {
+        "blockable_at_best_case": 1.0,
+        "blockable_at_worst_case": 1.0,
+        "latency_max_ms": 76.28803099942161,
+        "latency_min_ms": 58.13191700144671
+      },
+      "rf_fast": {
+        "blockable_at_best_case": 1.0,
+        "blockable_at_worst_case": 1.0,
+        "latency_max_ms": 0.00554,
+        "latency_min_ms": 0.00554
+      }
+    },
+    "n_fraud_events": 482,
+    "note": "bound from published latency min/max; per-event pairing not published"
+  },
   "ours": {
     "amount": {
-      "max": 31104.82,
-      "mean": 172.70630456802627,
-      "min": 1.36,
-      "q05": 19.26,
-      "q25": 51.34,
-      "q50": 101.5,
-      "q75": 200.03,
-      "q95": 534.1659999999999
+      "max": 13886.08,
+      "mean": 172.0798787115261,
+      "min": 0.9,
+      "q05": 19.23,
+      "q25": 50.98,
+      "q50": 100.14,
+      "q75": 198.39,
+      "q95": 547.5184999999999
     },
-    "density": 0.005060890222555639,
-    "illicit_rate": 0.011784470192949082,
+    "density": 0.005061515378844711,
+    "illicit_rate": 0.011906526357393409,
     "label": "PixGuard-Sim",
-    "mean_degree": 20.2385,
+    "mean_degree": 20.241,
     "n_accounts": 4000,
-    "n_events": 40477,
-    "n_fraud": 477,
+    "n_events": 40482,
+    "n_fraud": 482,
     "note": "generated under configs/default.json",
     "settlement_window_ms": {
       "max": 1999.0,
-      "mean": 1148.6618820564765,
+      "mean": 1152.0636826243763,
       "min": 300.0,
-      "q05": 382.0,
-      "q25": 724.0,
-      "q50": 1147.0,
-      "q75": 1573.0,
+      "q05": 383.0,
+      "q25": 726.0,
+      "q50": 1151.0,
+      "q75": 1579.0,
       "q95": 1915.0
     }
   },

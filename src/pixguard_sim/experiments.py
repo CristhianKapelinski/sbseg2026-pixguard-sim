@@ -472,6 +472,10 @@ def experiment_e8(cfg: PipelineConfig) -> dict[str, Any]:
             "measured_mean_latency_ms": round(per_event_ms, 6),
             "measured_score_total_ms": round(total_ms, 3),
             "per_event_latency_stats_ms": lat_stats,
+            # How many completions nothing could be read from. These fall back
+            # to the threshold value, which counts as a flag, so a recall of
+            # 1.000 next to a high count is the parser, not the model.
+            "unparsed_completions": int(getattr(det, "unparsed_count", 0)),
             "batch": m,
             "pre_deadline_fraction": {str(k): v for k, v in pre.items()},
         }
