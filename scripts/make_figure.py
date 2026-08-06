@@ -76,7 +76,7 @@ def main(argv: list[str]) -> int:
         "figure.dpi": 200,
     })
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(
-        1, 4, figsize=(9.6, 2.05), gridspec_kw={"width_ratios": [0.95, 1.45, 0.8, 0.85]}
+        1, 4, figsize=(9.6, 2.05), gridspec_kw={"width_ratios": [0.95, 1.36, 0.80, 0.96]}
     )
 
     # Panel (a): the settlement clock the events carry. A companion "share
@@ -88,16 +88,22 @@ def main(argv: list[str]) -> int:
     ax1.plot(x, y, color="#0072B2", linewidth=1.4)
     ax1.axvspan(lo, hi, color="#0072B2", alpha=0.08, linewidth=0)
     sweep = sorted(e8.get("deadline_sweep_ms", [200, 1000, 2000, 5000]))
-    for i, d in enumerate(sweep):
+    for d in sweep:
         if 10 <= d <= 12000:
-            ax1.axvline(d, color="#555", linewidth=0.6, linestyle="--", alpha=0.6)
-            ax1.annotate(f"{d}", xy=(d, 1.13 if i % 2 else 1.03), xytext=(1, 0),
-                         textcoords="offset points", fontsize=5.5, color="#555")
+            ax1.axvline(d, color="#888", linewidth=0.5, linestyle="--", alpha=0.5)
+    ax1.annotate(f"grey: swept deadlines {sweep[0]}–{sweep[-1]}\u2009ms",
+                 xy=(0.03, 0.73), xycoords="axes fraction", fontsize=5.0,
+                 color="#777", ha="left", va="top")
+    ax1.axvline(1500.0, color="#B00", linewidth=0.9, linestyle="-.", zorder=2)
+    # Labelled with the sweep marks rather than along the line, which would run
+    # through the curve.
+    ax1.annotate("1500\u2009ms: the budget", xy=(1500.0, 1.05), xytext=(2, 0),
+                 textcoords="offset points", fontsize=5.5, color="#B00")
     ax1.set_xscale("log")
     ax1.set_xlim(10, 12000)
-    ax1.set_ylim(-0.03, 1.25)
+    ax1.set_ylim(-0.03, 1.20)
     # After the scale and limits, so the placement rule reads real bounds.
-    _label(ax1, 90.0, 0.80, f"{lo:.0f}–{hi:.0f} ms", "#0072B2")  # empty upper left
+    _label(ax1, 15.0, 0.52, f"window\n{lo:.0f}–{hi:.0f} ms", "#0072B2")  # empty left
     ax1.set_xlabel("time from initiation (ms, log)")
     ax1.set_ylabel("share settled")
     ax1.grid(True, linestyle=":", linewidth=0.4)
@@ -110,7 +116,7 @@ def main(argv: list[str]) -> int:
     # frame-at-a-time has only a mean time per event, so it gets a labelled
     # point rather than a span it never produced.
     ax2.axvspan(lo, hi, color="#0072B2", alpha=0.10, linewidth=0,
-                label="settlement window")
+                label="settlement")
     rows = [("rf_fast", "RF", "#009E73", "^"),
             ("llm_terse", "Local LM, terse", "#D55E00", "s"),
             ("llm_reasoning", "Local LM, reasoning", "#CC79A7", "o"),
@@ -146,16 +152,16 @@ def main(argv: list[str]) -> int:
     for lx, ly, text, colour in pending:  # placed once the axis bounds are final
         _label(ax2, lx, ly, text, colour, dy=5)
     ax2.axvline(1500.0, color="#B00", linewidth=0.9, linestyle="-.", zorder=1,
-                label="1.5 s authorization budget")
+                label="1.5 s budget")
     ax2.legend(loc="lower left", framealpha=0.9, borderpad=0.25,
                fontsize=5, handlelength=1.6, labelspacing=0.3)
     ax2.annotate(f"n={e8['n_subsample']:,} events, {e8['n_fraud_subsample']:,} fraud",
-                 xy=(0.985, 0.04), xycoords="axes fraction", ha="right", va="bottom",
+                 xy=(0.985, 0.02), xycoords="axes fraction", ha="right", va="bottom",
                  fontsize=5.5, color="#333")
     ax2.set_title("(b) decision latency vs. that window")
 
     # Panel (c): per-scenario recall, single-hop-trained (E2), with Wilson CIs.
-    det = e2["detectors"][0]
+    det = next(d for d in e2["detectors"] if d["detector"].startswith("rf_"))
     scenarios = ["account_takeover", "mule_chain", "fake_med_refund", "coercion"]
     labels = ["takeover", "mule", "MED", "coercion"]
     recalls, los, his = [], [], []
@@ -171,20 +177,24 @@ def main(argv: list[str]) -> int:
         ax3.annotate(f"{v:.2f}", xy=(x, v + hi), xytext=(0, 2),
                      textcoords="offset points", ha="center", fontsize=5.5)
     ax3.set_ylim(0, 1.16)
-    ax3.set_ylabel("recall (single-hop trained)")
+    ax3.set_ylabel("RF recall, trained on takeover only")
     ax3.grid(True, axis="y", linestyle=":", linewidth=0.4)
     ax3.set_axisbelow(True)
-    ax3.tick_params(axis="x", labelrotation=20, labelsize=6)
+    ax3.tick_params(axis="x", labelrotation=0, labelsize=4.6, pad=1)
     ns = [det["per_scenario"].get(s, {}).get("recall", {}).get("n", 0) for s in scenarios]
     ax3.set_xticks(range(len(labels)))
     ax3.set_xticklabels([f"{lab}\nn={n}" for lab, n in zip(labels, ns, strict=True)])
     ax3.set_title("(c) recall per scenario")
 
     # Panel (d): PR-AUC with 95% CI across generators (in-repo, pfb, Tide HI/LI).
-    def _best_prauc(detectors: list[dict]) -> tuple[float, float, float]:
+    SHORT = {"rf_fast": "RF", "xgb_fast": "XGB", "gb_slow": "GB",
+             "lr_fast": "LR", "rule_threshold": "RULE"}
+
+    def _best_prauc(detectors: list[dict]) -> tuple[float, float, float, str]:
         best = max(detectors, key=lambda d: d["batch"]["pr_auc"])
         b = best["batch"]
-        return b["pr_auc"], b["pr_auc_ci_lo"], b["pr_auc_ci_hi"]
+        return (b["pr_auc"], b["pr_auc_ci_lo"], b["pr_auc_ci_hi"],
+                SHORT.get(best["detector"], best["detector"]))
 
     gens = ["ours", "pix-fraud-br", "Tide-HI", "Tide-LI"]
     pr_all = [_best_prauc(e1["detectors"]), _best_prauc(e5["detectors"]),
@@ -195,14 +205,17 @@ def main(argv: list[str]) -> int:
     his = [p[2] - v for v, p in zip(vals, pr_all, strict=True)]
     ax4.bar(gens, vals, color="#3b6", width=0.6, yerr=[los, his], capsize=2.5,
             ecolor="#777")
+    ax4.set_xticks(range(len(gens)))
+    ax4.set_xticklabels([f"{g}\n{p[3]}" for g, p in zip(gens, pr_all, strict=True)])
     for x, (v, hi) in enumerate(zip(vals, his, strict=True)):
         ax4.annotate(f"{v:.2f}", xy=(x, v + hi), xytext=(0, 2),
                      textcoords="offset points", ha="center", fontsize=5.5)
     ax4.set_ylim(0, 1.16)
     ax4.set_ylabel("best PR-AUC (95% CI)")
+    ax4.tick_params(axis="x", pad=1)
     ax4.grid(True, axis="y", linestyle=":", linewidth=0.4)
     ax4.set_axisbelow(True)
-    ax4.tick_params(axis="x", labelrotation=20, labelsize=6)
+    ax4.tick_params(axis="x", labelrotation=0, labelsize=4.2)
     ax4.set_title("(d) PR-AUC per source")
 
     fig.tight_layout(pad=0.4, w_pad=0.8)

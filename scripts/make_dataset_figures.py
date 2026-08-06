@@ -163,7 +163,7 @@ def fig_dataset(
     g = base.graph
 
     fig, axes = plt.subplots(
-        1, 4, figsize=(9.6, 2.15), gridspec_kw={"width_ratios": [1.5, 1.0, 1.1, 0.95]}
+        1, 4, figsize=(9.6, 1.92), gridspec_kw={"width_ratios": [1.5, 1.0, 1.1, 0.95]}
     )
     ax1, ax2, ax3, ax4 = axes
 
@@ -216,7 +216,7 @@ def fig_dataset(
         borderpad=0.3,
     )
     ax1.set_axis_off()
-    ax1.set_title("(a) sampled account neighbourhood")
+    ax1.set_title("(a) sampled account neighborhood")
 
     # (b) measured signal presence per scenario: one hue, light to dark.
     order = ["legit", *FRAUD_SCENARIOS]
