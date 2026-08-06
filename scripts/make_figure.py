@@ -144,6 +144,9 @@ def main(argv: list[str]) -> int:
                             f"{mean:.3f} ms/event", colour))
     ax2.set_yticks(range(len(rows)))
     ax2.set_yticklabels([lab for _, lab, _, _ in reversed(rows)], fontsize=5.5)
+    for tick, (_, _, colour, _) in zip(ax2.get_yticklabels(), reversed(rows),
+                                       strict=True):
+        tick.set_color(colour)
     ax2.set_xscale("log")
     ax2.set_xlim(1e-3, 60000)
     ax2.set_ylim(-1.75, len(rows) - 0.25)
