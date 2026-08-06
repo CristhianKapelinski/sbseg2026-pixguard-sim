@@ -20,6 +20,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 | [Minimal Test](#minimal-test) | One command that exercises the real pipeline end to end |
 | [Experiments](#experiments) | Reproduction of the paper's claims, one designated main claim |
 | [License](#license) | Licensing information |
+| [How to cite](#how-to-cite) | Paper reference and machine-readable `CITATION.cff` |
 
 ---
 
@@ -37,7 +38,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 | | |
 |---|---|
 | **OS** | Linux (developed on Ubuntu 24.04). macOS/Windows expected to work for the in-repo experiments. |
-| **Python** | 3.10+ (validated on 3.13 via `uv`). |
+| **Python** | 3.11 or newer (validated on 3.13 via `uv`). The floor is set by matplotlib 3.11, the version that produced the figures in the paper; below it the figure scripts still run but lay the data out slightly differently. |
 | **RAM** | < 1 GB for the in-repo experiments (E1/E2/E4); ~6 GB peak for the cross-generator runs (E3/E5/E6) on a 400k-row subsample. |
 | **Disk** | `.venv` after `uv sync`: ~1.1 GB. Optional third-party datasets (cross-generator claim only): ~1.8 GB (Tide) + ~130 MB (pix-fraud-br), fetched outside the repo. |
 | **GPU** | **Not needed.** The whole tabular pipeline runs on CPU. A CUDA GPU only accelerates the optional GraphSAGE (E7) and LLM-latency (E8) baselines, both of which fall back to CPU. |
@@ -53,16 +54,16 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [
 - **Dev (`--extra dev`):** `pytest`, `ruff` — for the unit tests and the linter.
 - **Cross-generator (`--extra datasets`):** `datasets`, `pyarrow`, `xgboost` — only for the cross-generator claim (E3/E5/E6) that scores real third-party data.
 - **Optional baselines:** `--extra gnn` (`torch`) for the GraphSAGE baseline (E7); `--extra llm` (`torch`, `transformers`, `accelerate`) for the on-machine language-model study (E8). The hosted-model study (E9) needs neither, only network.
-- **Figures (`--extra figures`):** `matplotlib` — for the figure scripts under `scripts/`.
+- **Figures (`--extra figures`):** `matplotlib`, pinned to **3.11.x** — the minor that produced the committed figures. A looser range resolves to 3.10, which regenerates figures that do not match the paper.
 
-**Third-party inputs are auto-fetched.** The two public generators are downloaded on demand by [`scripts/exp_cross_generator.sh`](scripts/exp_cross_generator.sh): Tide HI/LI from Zenodo (`10.5281/zenodo.18804069`, CC BY 4.0) and pix-fraud-br from Hugging Face (`andremessina/pix-fraud-br`, ODC-BY), both over HTTPS. Each file is verified against the provider-published checksum and pinned in `results/data_manifest.json`; a missing or mismatched file raises a typed error rather than fabricating a result. No dataset bytes are vendored in the repository.
+**Third-party inputs are auto-fetched.** The two public generators are downloaded on demand by [`scripts/claim3.sh --run`](scripts/claim3.sh): Tide HI/LI from Zenodo (`10.5281/zenodo.18804069`, CC BY 4.0) and pix-fraud-br from Hugging Face (`andremessina/pix-fraud-br`, ODC-BY), both over HTTPS. Each file is verified against the provider-published checksum and pinned in `results/data_manifest.json`; a missing or mismatched file raises a typed error rather than fabricating a result. No dataset bytes are vendored in the repository.
 
 ---
 
 ## Security Concerns
 
 - The tool runs **entirely locally** over synthetic data; it runs no untrusted code and ships no container required for the review.
-- **Network** is used by the optional cross-generator claim, which fetches the two named public datasets over HTTPS (Zenodo, Hugging Face), and by the hosted-model experiment (E9, `scripts/run_hosted_llm.py`), which calls a reasoning model one transfer per request. E9 sends its requests to a local forwarding endpoint (`http://127.0.0.1:8080/v1/messages`) that holds the provider credential, so no key is read or stored by this repository. The minimal test and the in-repo experiments need no network.
+- **Network** is used by the optional cross-generator claim, which fetches the two named public datasets over HTTPS (Zenodo, Hugging Face), and by the hosted-model experiment (E9, `scripts/run_hosted_llm.py`), which calls a reasoning model one transfer per request. E9 sends its requests wherever `PIXGUARD_LLM_ENDPOINT` points, defaulting to a local forwarding endpoint (`http://127.0.0.1:8080/v1/messages`) that holds the provider credential. An evaluator who prefers to call a provider directly sets that variable and `PIXGUARD_LLM_API_KEY`; the key is read from the environment, sent as a header, and never written to a results file or stored in this repository. The minimal test and the in-repo experiments need no network.
 - **No credentials** are stored in the repository. The external data root is never hardcoded — it is read from the `--data-dir` flag or the `PIXGUARD_DATA_DIR` environment variable, and downloads land in a scratch directory outside the repo (gitignored).
 
 ---
@@ -113,84 +114,232 @@ This confirms the harness runs end to end and writes a real, inspectable `result
 
 ## Experiments
 
-Each claim below is **one command**. The in-repo claims default to a **fast** variant (a few seconds, reduced event count and bootstrap resamples); pass `--full` for the paper's full configuration. The cross-generator claim is gated behind a separate script and downloads ~2 GB of third-party data — reviewers short on time or disk may instead inspect the committed `results/published/*.json`, which are the exact outputs behind every number in the paper.
+Each claim is **one command** that recomputes the experiment here with the paper's own
+configuration and prints the measured value beside the published one, with an `OK`/`FAIL`
+per line and a non-zero exit on any mismatch. The paper's side of every comparison is read
+from [`expected/paper_macros.tex`](expected/paper_macros.tex), the frozen camera-ready macro
+block, so a claim cannot silently drift from the paper.
 
-| Claim | Paper experiment(s) | Data | Main? |
-|---|---|---|---|
-| #1 Under real latency, the deadline metric separates a slow detector from accuracy | E1 (latency property) + E8 (LLM realization) | in-repo | **yes** |
-| #2 Single-hop-trained detectors collapse on the two new Pix-native scenarios | E2 | in-repo | |
-| #3 Cross-generator credibility on real released datasets | E3, E5, E6 | Tide + pix-fraud-br | |
+Nothing is written into [`results/published/`](results/published): a live run goes to
+`results/claim_run/`, and the framed block states which of the two it read. Claim #3 is the
+one exception, and says so in its own output.
 
-> Two supporting experiments are not separate reviewer steps: **E4** (determinism) is a one-liner — `uv run pixguard-sim --config configs/default.json run --experiments E4` — that writes `results/e4.json` with `"deterministic": true`; **E7** (the optional GraphSAGE baseline) requires the `gnn` extra and its numbers are in `results/e7.json`.
+| Claim | Paper experiment(s) | Data | Recomputed here? | Main? |
+|---|---|---|---|---|
+| #1 The deadline metric is driven by measured latency, not by accuracy | E1 (+ E8/E9 for the slow-detector realization) | in-repo | yes, ~21 s | **yes** |
+| #2 Single-hop training collapses on the two Pix-native scenarios | E2 | in-repo | yes, ~14 s | |
+| #3 Cross-generator credibility on three independently authored generators | E3, E5, E6 | Tide + pix-fraud-br | only with `--run` (~2 GB, ~13 min) | |
 
-### Claim #1 (MAIN) — The deadline metric separates a genuinely slow detector from accuracy
+> **E4** (determinism) and **E7** (the optional GraphSAGE baseline) are not reviewer steps.
+> E4 is `uv run pixguard-sim --config configs/default.json run --experiments E4`, which writes
+> `"deterministic": true`; E7 needs the `gnn` extra and its numbers are in
+> [`results/published/e7.json`](results/published/e7.json).
 
-**Description.** The deadline metric is driven by each detector's *measured* per-event latency. For sub-millisecond tabular detectors it equals recall (E1, runnable below). It becomes discriminating only when a detector deliberates. A small instruct LLM (Qwen2.5-1.5B) scored one event at a time answers in **109 ms** on this machine and reaches PR-AUC **0.160**, at chance: fast and useless. Two hosted reasoning models on the same 1000 events reach PR-AUC **0.846** and **0.849**, above the random forest's recall on the fraud side, but spend **5025 ms** and **10 329 ms** at the 95th percentile, so their pre-deadline fraction at the regulator's 1.5 s budget is **0.000**. This is the spine claim (C1): the most accurate detector can be the one that cannot answer in time, and only the latency-aware metric exposes it.
+### Claim #1 (MAIN): the deadline metric is driven by measured latency, so accuracy alone selects detectors that cannot answer in time
+
+**Paper reference:** Section *The deadline metric*, Table 1 and Table 2.
+
+**What this claim asserts, and where it is weakest.** The pre-deadline fraction is computed
+from each detector's *measured* per-event latency. The four tabular detectors decide in
+microseconds, so none of them ever misses the deadline and the metric collapses onto recall:
+run on its own, this experiment shows the metric adding **nothing**, which is the honest
+result and the reason the claim needs its second half. The metric only bites once a detector
+deliberates: a local instruct model answers in 109 ms at PR-AUC 0.160, while two hosted
+reasoning models on the same 1000 events reach PR-AUC 0.846 and 0.849 and spend 5025 ms and
+10 329 ms at the 95th percentile, so their pre-deadline fraction at the regulator's 1.5 s
+budget is 0.000. That second half needs a model download or a network credential, so the
+command below verifies the first half and the published outputs carry the second.
 
 ```bash
-./scripts/exp_e1_deadline.sh            # add --full for the paper's full config
+./scripts/claim1.sh
 ```
 
-- **Expected time:** ~4 s fast (measured: 3.6 s); ~19 s full (measured: 18.98 s).
-- **Expected resources:** < 1 GB RAM, negligible disk.
-- **Expected result (full config, in `results/e1.json`):** the four tabular detectors are all sub-millisecond, so each detector's pre@1000ms equals its recall (e.g. `rf_fast` F1 = 0.684, PR-AUC = 0.743, pre@1000ms = 0.622). The metric therefore adds nothing over recall *here* — by design. It starts to bind in E8 and E9, where the language models are slow enough for latency to matter; the captured outputs ship in `results/published/e8.json` and `results/published/e9_hosted.json`.
+- **Expected time:** ~21 s measured on the reference machine.
+- **Expected resources:** ~0.8 GB peak RAM, negligible disk. No GPU, no network.
+- **Expected result:**
 
-### Reproducing the language-model experiments (E8 and E9)
+```text
+══════════════════════════════════════════════════════════════════
+  Claim #1  The deadline metric is driven by measured latency  (MAIN CLAIM)
+──────────────────────────────────────────────────────────────────
+  rule_threshold F1              : 0.443        (paper 0.443)     OK
+  rule_threshold PR-AUC          : 0.431        (paper 0.431)     OK
+  lr_fast F1                     : 0.639        (paper 0.639)     OK
+  lr_fast PR-AUC                 : 0.706        (paper 0.706)     OK
+  rf_fast F1                     : 0.684        (paper 0.684)     OK
+  rf_fast PR-AUC                 : 0.743        (paper 0.743)     OK
+  rf_fast recall                 : 0.622        (paper 0.622)     OK
+  pre@1000ms equals recall       : yes          (paper yes)       OK
+  slowest per-event latency (ms) : 0.0030      
+──────────────────────────────────────────────────────────────────
+  source of these numbers        : recomputed on this machine just now
+  wall clock on this machine     : 21 s
+  peak memory on this machine    : 791 MB
+──────────────────────────────────────────────────────────────────
+  RESULT: OK   (8/8 gated values match the paper)
+══════════════════════════════════════════════════════════════════
+```
 
-E8 measures a small instruct model on the machine that runs the harness; E9 scores the **same 1000 events, drawn with the same seed**, through hosted reasoning models. Both are optional: the first needs a model download, the second needs network.
+The wall clock and peak memory are yours, not the paper's, and are never gated.
+
+### Claim #2: a detector trained only on the single-hop case collapses on coercion and multi-hop MED-2.0 refunds
+
+**Paper reference:** Section *Scenarios open data omits*, Table 3.
+
+**What this claim asserts.** A random forest trained only on legitimate traffic plus account
+takeover — the modeling scope of the open Pix generator — keeps its recall there and falls
+away as the scenario moves further from what it saw: mule chains, then multi-hop MED-2.0
+refunds, then coercion, where the victim transacts from their own device and the transfer
+looks ordinary by construction.
+
+```bash
+./scripts/claim2.sh
+```
+
+- **Expected time:** ~14 s measured on the reference machine.
+- **Expected resources:** ~0.8 GB peak RAM, negligible disk. No GPU, no network.
+- **Expected result:**
+
+```text
+══════════════════════════════════════════════════════════════════
+  Claim #2  Single-hop training collapses on the Pix-native scenarios
+──────────────────────────────────────────────────────────────────
+  recall, account_takeover       : 0.736        (paper 0.736)     OK
+    N, account_takeover          : 53           (paper 53)        OK
+  recall, mule_chain             : 0.433        (paper 0.433)     OK
+    N, mule_chain                : 60           (paper 60)        OK
+  recall, fake_med_refund        : 0.282        (paper 0.282)     OK
+    N, fake_med_refund           : 39           (paper 39)        OK
+  recall, coercion               : 0.146        (paper 0.146)     OK
+    N, coercion                  : 41           (paper 41)        OK
+──────────────────────────────────────────────────────────────────
+  RESULT: OK   (8/8 gated values match the paper)
+══════════════════════════════════════════════════════════════════
+```
+
+### Claim #3: the harness holds up on two independently authored generators
+
+**Paper reference:** Section *Cross-generator credibility*, Tables 4 and 5.
+
+**What this claim asserts.** The same harness runs, through adapters, on two generators we
+did not write. It reproduces the pix-fraud-br prior-art XGBoost baseline, measures the decline
+on rare-illicit Tide, and quantifies how far accuracy falls when a detector is trained on one
+generator and tested on another.
+
+```bash
+./scripts/claim3.sh                 # reads the committed campaign, instant
+./scripts/claim3.sh --run           # refetches ~2 GB and recomputes here
+```
+
+- **Flags:** `--run` downloads Tide HI/LI from Zenodo and pix-fraud-br from Hugging Face into
+  `$PIXGUARD_DATA_DIR` (default `./data`, gitignored), verifies them against the manifest and
+  recomputes E3/E5/E6. Without it the script reads
+  [`results/published/`](results/published) and **says so in its output** rather than implying
+  it measured anything.
+- **Expected time:** instant to read; **~13 min** with `--run` once the data is local, plus the
+  download on first use.
+- **Expected resources:** ~6 GB peak RAM and ~2 GB disk with `--run`, both outside the repo.
+- **Expected result:**
+
+```text
+══════════════════════════════════════════════════════════════════
+  Claim #3  Cross-generator credibility on three generators
+──────────────────────────────────────────────────────────────────
+  pix-fraud-br XGBoost PR-AUC    : 0.920        (paper 0.920)     OK
+    its published baseline       : 0.865        (paper 0.865)     OK
+    on shared columns only       : 0.137        (paper 0.137)     OK
+  Tide HI XGBoost PR-AUC         : 0.250        (paper 0.250)     OK
+  Tide LI XGBoost PR-AUC         : 0.280        (paper 0.280)     OK
+  transfer ours -> pix-fraud-br  : 0.021        (paper 0.021)     OK
+  transfer pix-fraud-br -> ours  : 0.281        (paper 0.281)     OK
+  in-distribution, ours          : 0.743        (paper 0.743)     OK
+──────────────────────────────────────────────────────────────────
+  source of these numbers        : read from the committed campaign
+                                   (results/published); pass --run to regenerate it here
+──────────────────────────────────────────────────────────────────
+  RESULT: OK   (8/8 gated values match the paper)
+══════════════════════════════════════════════════════════════════
+```
+
+The 0.920 and the dataset's published 0.865 are **not** comparable: they use different splits
+and different features. What the drop to 0.137 shows is the same dataset scored on the four
+columns every source shares.
+
+### Every number in the paper, and the figures
+
+The paper hardcodes no empirical number: each one is a `\newcommand` generated from
+[`results/published/`](results/published). One command regenerates the three figures and
+checks all 158 of them against the frozen camera-ready block.
+
+```bash
+./scripts/make_figures.sh
+```
+
+- **Expected time:** ~25 s. **Expected resources:** < 1 GB RAM.
+- **Expected result:** `figs/fig_results.pdf`, `figs/fig_dataset.pdf` and `figs/pipeline.pdf`
+  are rewritten, followed by `PAPER VALUES: 158 PASS / 0 FAIL`. The regenerated figures render
+  pixel-identical to the ones printed in the paper, so `git status` staying clean is itself the
+  check. This needs matplotlib 3.11, which is why the project requires Python 3.11 or newer;
+  on 3.10 the pinned range resolves to matplotlib 3.10 and the figures come out subtly different.
+
+### Optional: the language-model experiments (E8 and E9)
+
+Neither is required for a claim. E8 measures a small instruct model on this machine and needs a
+model download; E9 scores the same 1000 events through hosted models and needs a credential.
 
 ```bash
 uv run --extra llm pixguard-sim --config configs/default.json run --experiments E8
+./scripts/llm_smoke.sh
+```
+
+`llm_smoke.sh` is the cheap way to see the deadline bind on a real round trip: it scores **ten**
+events through one flash-tier hosted model instead of the paper's 1000 through two reasoning
+models, which is enough to measure per-request latency against the 1.5 s budget and costs
+almost nothing. Accuracy on ten events is meaningless, so it reports timing and gates on
+nothing. Supply your own credential with `PIXGUARD_LLM_API_KEY` and point
+`PIXGUARD_LLM_ENDPOINT` at your provider; the key is read from the environment, never written
+to a results file and never stored in this repository. Left unset, requests go to a local
+forwarder on `127.0.0.1:8080` instead. `PIXGUARD_LLM_MODEL` and `PIXGUARD_LLM_SMOKE_N` override
+the model and the event count.
+
+Full E9 as the paper ran it:
+
+```bash
 uv run python scripts/run_hosted_llm.py --models deepseek-v4-flash,deepseek-v4-pro
 ```
 
-`run_hosted_llm.py` sends every request to `http://127.0.0.1:8080/v1/messages`, a local endpoint you point at your provider; it holds the credential, so nothing here reads or stores a key. It writes `results/e9_hosted.json` incrementally, one detector at a time, and records a concurrency check (the same requests timed serially and in parallel) so the bounded parallelism is shown not to distort the per-request latency the deadline metric reads.
-
-- **Expected result (E8, `results/published/e8.json`):** `llm_terse` 60 ms mean at PR-AUC 0.201, `llm_reasoning` 109 ms at 0.160, `rf_fast` sub-millisecond at 0.931. All three clear a 1000 ms deadline.
-- **Expected result (E9, `results/published/e9_hosted.json`):** PR-AUC 0.846 and 0.849, p95 latency 5025 ms and 10 329 ms, `pre_deadline_1500ms` 0.000 for both.
-
-### Regenerating the figures and the paper macros
-
-The figure scripts read the committed results and the generated event stream, so generate the stream first:
-
-```bash
-uv run pixguard-sim generate --output data/events.csv
-uv run --extra figures python scripts/make_figure.py results/published figs/fig_results.pdf data/events.csv
-uv run --extra figures python scripts/make_dataset_figures.py
-uv run --extra figures python scripts/make_pipeline_figure.py results/published figs/pipeline.pdf data/events.csv
-uv run python scripts/make_macros.py results/published        # LaTeX macros, printed to stdout
-```
-
-Every number in the paper is emitted by `make_macros.py` from `results/published/*.json`; the prose hardcodes none of them.
-
-### Claim #2 — Single-hop-trained detectors collapse on the two new Pix-native scenarios
-
-**Description.** A detector trained only on the single-hop case (legitimate traffic plus account-takeover — the modeling scope of the open Pix generator) keeps high recall there but collapses on the two scenarios no open artifact covers: coercion (deceptively normal, the victim transacts from their own device) and multi-hop MED-2.0 refunds (C2).
-
-```bash
-./scripts/exp_e2_scenarios.sh           # add --full for the paper's full config
-```
-
-- **Expected time:** ~3 s fast (measured: 2.8 s); ~13 s full (measured: 13.0 s).
-- **Expected resources:** < 1 GB RAM, negligible disk.
-- **Expected result (full config, `rf_single_hop`, in `results/e2.json`):** recall 0.736 on `account_takeover`, 0.433 on `mule_chain`, 0.282 on `fake_med_refund` (multi-hop MED-2.0), and 0.146 on `coercion`. Accuracy falls monotonically as the scenario moves away from the single case the detector saw in training. The fast config is noisier on the small per-scenario counts; run `--full` to reproduce the paper values.
-
-### Claim #3 — Cross-generator credibility on three independently-authored generators
-
-**Description.** The same harness runs on two independently released generators through adapters. E5 reproduces the pix-fraud-br prior-art XGBoost baseline within tolerance; E3 measures the decline on rare-illicit Tide; and E6 quantifies the loss under cross-generator transfer.
-
-```bash
-./scripts/exp_cross_generator.sh        # fetches ~2 GB of public data on first run
-```
-
-- **Expected time:** ~13 min once the data is local (measured: 773 s for the three experiments); the first run also downloads ~2 GB. Requires the `datasets` extra (the script invokes `uv run --extra datasets`).
-- **Expected resources:** ~6 GB RAM peak, ~2 GB disk for the downloads (outside the repo).
-- **Expected result (in `results/published/e3.json`, `e5.json`, `e6.json`):** on pix-fraud-br scored with its own features, XGBoost reaches PR-AUC 0.920; the dataset's own published baseline reports 0.865 on different splits and features, so the two are not directly comparable. Reduced to the four columns every source shares, the same dataset falls to 0.137. On rare-illicit Tide the best PR-AUC is 0.250 (HI) and 0.280 (LI). Cross-source transfer collapses: ours → pix-fraud-br 0.021 and pix-fraud-br → ours 0.281, against 0.743 in-distribution on our own data.
-
-> Reviewers may skip the run and inspect the committed `results/published/*.json` plus `DOCUMENTATION.md`, which records every command and its real captured output.
+Its captured outputs ship in [`results/published/e8.json`](results/published/e8.json) and
+[`results/published/e9_hosted.json`](results/published/e9_hosted.json): PR-AUC 0.846 and 0.849,
+p95 latency 5025 ms and 10 329 ms, `pre_deadline_1500ms` 0.000 for both.
 
 ---
 
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
+
+---
+
+## How to cite
+
+If you use this artifact, please cite the paper:
+
+> Kapelinski, C. and Kreutz, D. (2026). PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud
+> Detectors. In *Anais do XXVI Simpósio Brasileiro de Segurança da Informação e de Sistemas
+> Computacionais (SBSeg 2026)*, Workshop de Trabalhos de Iniciação Científica e de Graduação
+> (WTICG). Sociedade Brasileira de Computação (SBC).
+
+```bibtex
+@inproceedings{kapelinski2026pixguardsim,
+  title     = {{PixGuard-Sim}: A Deadline-Aware Testbed for Pix Fraud Detectors},
+  author    = {Kapelinski, Cristhian and Kreutz, Diego},
+  booktitle = {Anais do XXVI Simp\'osio Brasileiro de Seguran\c{c}a da Informa\c{c}\~ao e de
+               Sistemas Computacionais (SBSeg 2026), Workshop de Trabalhos de Inicia\c{c}\~ao
+               Cient\'ifica e de Gradua\c{c}\~ao (WTICG)},
+  year      = {2026},
+  publisher = {Sociedade Brasileira de Computa\c{c}\~ao (SBC)},
+}
+```
+
+[`CITATION.cff`](CITATION.cff) carries the same reference in machine-readable form, which is
+what GitHub's "Cite this repository" button and Zenodo read.

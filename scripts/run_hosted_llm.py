@@ -29,7 +29,6 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pixguard_sim.config import PipelineConfig  # noqa: E402
-from pixguard_sim.detectors.base import Detector  # noqa: E402
 from pixguard_sim.detectors.llm_api import (  # noqa: E402
     HostedLLMDetector,
     measure_concurrency_effect,

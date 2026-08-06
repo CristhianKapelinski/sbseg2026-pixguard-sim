@@ -192,7 +192,11 @@ def main(argv: list[str]) -> int:
 
     fig.tight_layout(pad=0.1)
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, bbox_inches="tight")
+    # No creation timestamp: without this every regeneration differs from the
+    # committed figure by a date, and `git status` reports a change that is not
+    # one. With it, a clean status after make_figures.sh really means the
+    # artifact reproduced the published figure.
+    fig.savefig(out, bbox_inches="tight", metadata={"CreationDate": None})
     print(f"wrote {out}")
     return 0
 

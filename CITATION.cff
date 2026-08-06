@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: "If you use this artifact, please cite the paper below."
+title: "PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors"
+abstract: >-
+  An open testbed that scores a Pix fraud detector against the 1.5 s authorization
+  budget the Brazilian regulator gives a paying institution, from the latency the
+  detector actually measures, and releases a Pix-native generator with a settlement
+  clock and two scenarios open data omits: multi-hop MED-2.0 refund tracing and
+  payment under coercion.
+type: software
+license: MIT
+repository-code: "https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim"
+keywords:
+  - pix
+  - instant-payments
+  - fraud-detection
+  - deadline-aware
+  - testbed
+  - reproducibility
+authors:
+  - family-names: Kapelinski
+    given-names: Cristhian
+    orcid: "https://orcid.org/0009-0005-5750-022X"
+    affiliation: "AI Horizon Labs, Universidade Federal do Pampa (UNIPAMPA)"
+  - family-names: Kreutz
+    given-names: Diego
+    orcid: "https://orcid.org/0000-0003-0830-0238"
+    affiliation: "AI Horizon Labs, Universidade Federal do Pampa (UNIPAMPA)"
+preferred-citation:
+  type: conference-paper
+  title: "PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors"
+  year: 2026
+  collection-title: "Anais do XXVI Simpósio Brasileiro de Segurança da Informação e de Sistemas Computacionais (SBSeg 2026)"
+  conference:
+    name: "Simpósio Brasileiro de Segurança da Informação e de Sistemas Computacionais (SBSeg 2026), Workshop de Trabalhos de Iniciação Científica e de Graduação (WTICG)"
+  publisher:
+    name: "Sociedade Brasileira de Computação (SBC)"
+  authors:
+    - family-names: Kapelinski
+      given-names: Cristhian
+      orcid: "https://orcid.org/0009-0005-5750-022X"
+    - family-names: Kreutz
+      given-names: Diego
+      orcid: "https://orcid.org/0000-0003-0830-0238"

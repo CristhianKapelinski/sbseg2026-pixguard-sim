@@ -125,7 +125,7 @@ def main(argv: list[str]) -> int:
             ("deepseek-v4-pro", "Hosted pro", "#000000", "v")]
     by_name = {d["detector"]: d for d in e8["detectors"] + e9["detectors"]}
     pending: list[tuple[float, float, str, str]] = []
-    for i, (key, label, colour, marker) in enumerate(rows):
+    for i, (key, _unused_label, colour, marker) in enumerate(rows):
         det = by_name[key]
         stats = det.get("per_event_latency_stats_ms")
         ypos = len(rows) - 1 - i
@@ -231,7 +231,11 @@ def main(argv: list[str]) -> int:
 
     fig.tight_layout(pad=0.4, w_pad=0.8)
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, bbox_inches="tight")
+    # No creation timestamp: without this every regeneration differs from the
+    # committed figure by a date, and `git status` reports a change that is not
+    # one. With it, a clean status after make_figures.sh really means the
+    # artifact reproduced the published figure.
+    fig.savefig(out, bbox_inches="tight", metadata={"CreationDate": None})
     print(f"wrote {out}")
     return 0
 

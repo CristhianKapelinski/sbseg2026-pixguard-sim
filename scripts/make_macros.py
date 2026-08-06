@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 
 
-
 def _thousands(n: int) -> str:
     """Group digits with a thin space from five digits up; four-digit numbers stay solid.
 

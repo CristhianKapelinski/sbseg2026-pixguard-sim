@@ -16,10 +16,10 @@ from pixguard_sim.config import GeneratorConfig
 from pixguard_sim.scenarios._common import (
     device_changed,
     new_payee,
+    payer_velocity,
     resolve_payee_key,
     sample_amount,
     settle_time,
-    payer_velocity,
 )
 from pixguard_sim.schema import PixEvent
 

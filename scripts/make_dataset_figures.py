@@ -239,7 +239,7 @@ def fig_dataset(
     # survives the shared schema.
     stats = json.loads(stats_path.read_text(encoding="utf-8"))
     recs = [stats[k].get("as_scored", stats[k]) for k, _, _ in SOURCE_ORDER]
-    for i, (rec, (_, label, colour)) in enumerate(
+    for i, (rec, (_, _unused_label, colour)) in enumerate(
         zip(recs, SOURCE_ORDER, strict=True)
     ):
         a = rec["amount"]
@@ -284,7 +284,11 @@ def fig_dataset(
 
     fig.tight_layout(pad=0.4, w_pad=0.8)
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, bbox_inches="tight")
+    # No creation timestamp: without this every regeneration differs from the
+    # committed figure by a date, and `git status` reports a change that is not
+    # one. With it, a clean status after make_figures.sh really means the
+    # artifact reproduced the published figure.
+    fig.savefig(out, bbox_inches="tight", metadata={"CreationDate": None})
     plt.close(fig)
     print(f"wrote {out}")
 
@@ -333,7 +337,7 @@ def fig_clocks(events: pd.DataFrame, results: Path, out: Path) -> None:
         ("llm_reasoning", "Reasoning LM", "#CC79A7", "o"),
     ]
     by_name = {d["detector"]: d for d in e8["detectors"]}
-    for i, (key, label, colour, marker) in enumerate(rows):
+    for i, (key, _unused_label, colour, marker) in enumerate(rows):
         det = by_name[key]
         stats = det.get("per_event_latency_stats_ms")
         ypos = len(rows) - 1 - i
@@ -365,7 +369,11 @@ def fig_clocks(events: pd.DataFrame, results: Path, out: Path) -> None:
 
     fig.tight_layout(pad=0.4, w_pad=0.8)
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, bbox_inches="tight")
+    # No creation timestamp: without this every regeneration differs from the
+    # committed figure by a date, and `git status` reports a change that is not
+    # one. With it, a clean status after make_figures.sh really means the
+    # artifact reproduced the published figure.
+    fig.savefig(out, bbox_inches="tight", metadata={"CreationDate": None})
     plt.close(fig)
     print(f"wrote {out}")
 

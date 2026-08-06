@@ -7,7 +7,11 @@ name = "pixguard-sim"
 version = "0.1.0"
 description = "A deadline-aware evaluation harness for PIX fraud detectors with multi-hop MED-2.0 and coercion scenarios."
 readme = "README.md"
-requires-python = ">=3.10"
+# 3.11 is the floor because matplotlib 3.11, the version that produced the
+# figures in the paper, does not build below it. Claiming 3.10 would let an
+# evaluator install a resolvable-but-wrong matplotlib and get figures that
+# differ from the published ones with no warning.
+requires-python = ">=3.11"
 license = { text = "MIT" }
 keywords = ["pix", "fraud-detection", "evaluation-harness", "synthetic-data", "anti-money-laundering"]
 dependencies = [
@@ -41,7 +45,10 @@ llm = [
 ]
 # Build-only extra to regenerate the paper figure; not a runtime dependency.
 figures = [
-    "matplotlib>=3.7,<3.11",
+    # Pinned to the minor that produced the figures committed here and printed
+    # in the paper: 3.10 lays the same data out slightly differently, so a
+    # looser range silently regenerates figures that do not match the paper.
+    "matplotlib>=3.11,<3.12",
 ]
 
 [project.scripts]

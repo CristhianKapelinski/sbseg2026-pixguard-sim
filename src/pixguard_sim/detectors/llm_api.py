@@ -7,8 +7,12 @@ latency includes the network round trip and whatever the provider's queue adds.
 That is the cost a deployment actually pays, so it is what this detector
 measures: wall-clock from issuing the request to holding a parsed verdict.
 
-Requests carry no key of their own. They go to a local endpoint that holds the
-credential and forwards upstream, so nothing here reads or stores a secret.
+Where the credential lives is the evaluator's choice, and neither option puts a
+secret in this repository. By default requests go to a local endpoint that holds
+the credential and forwards upstream, so nothing here reads a key at all. An
+evaluator who would rather call a provider directly sets ``PIXGUARD_LLM_ENDPOINT``
+and ``PIXGUARD_LLM_API_KEY`` in the environment; the key is read at construction
+time, sent as a header, and never written to any output file.
 
 Concurrency is a measurement decision, not just a speed one. The deadline
 metric asks how long *one* transfer waits for its own verdict, which is a
@@ -23,6 +27,7 @@ from __future__ import annotations
 import concurrent.futures as futures
 import json
 import logging
+import os
 import time
 import urllib.error
 import urllib.request
@@ -35,7 +40,9 @@ from pixguard_sim.detectors.llm import _UNPARSED_SCORE, _event_prompt, _parse_sc
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ENDPOINT = "http://127.0.0.1:8080/v1/messages"
+DEFAULT_ENDPOINT = os.environ.get(
+    "PIXGUARD_LLM_ENDPOINT", "http://127.0.0.1:8080/v1/messages"
+)
 
 
 class HostedLLMDetector(Detector):
@@ -56,7 +63,8 @@ class HostedLLMDetector(Detector):
         Args:
             model: Provider model identifier.
             name: Detector name in reports; defaults to the model id.
-            endpoint: Local forwarding endpoint that injects the credential.
+            endpoint: Where requests go. Defaults to ``PIXGUARD_LLM_ENDPOINT``,
+                or to a local forwarding endpoint that injects the credential.
             max_new_tokens: Generation cap, matching the local reasoning regime.
             reasoning: Use the deliberating prompt rather than the terse one.
             max_in_flight: Bound on concurrent requests.
@@ -69,6 +77,9 @@ class HostedLLMDetector(Detector):
         self.reasoning = reasoning
         self.max_in_flight = max_in_flight
         self.timeout_s = timeout_s
+        # Read once, kept in memory only. It is never logged and never reaches a
+        # results file, so a run someone shares cannot leak it.
+        self._api_key = os.environ.get("PIXGUARD_LLM_API_KEY") or None
         self.per_event_latencies_ms: np.ndarray = np.empty(0)
         self.unparsed_count: int = 0
         self.new_tokens: list[int] = []
@@ -85,11 +96,14 @@ class HostedLLMDetector(Detector):
             "max_tokens": self.max_new_tokens,
             "messages": [{"role": "user", "content": prompt}],
         }).encode()
-        req = urllib.request.Request(
-            self.endpoint, data=payload,
-            headers={"content-type": "application/json",
-                     "anthropic-version": "2023-06-01"},
-        )
+        headers = {"content-type": "application/json",
+                   "anthropic-version": "2023-06-01"}
+        if self._api_key:
+            # Both spellings, so the same command works against a provider that
+            # expects the Anthropic-style header and one that expects Bearer.
+            headers["x-api-key"] = self._api_key
+            headers["authorization"] = f"Bearer {self._api_key}"
+        req = urllib.request.Request(self.endpoint, data=payload, headers=headers)
         t0 = time.perf_counter()
         try:
             with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
