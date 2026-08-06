@@ -99,11 +99,13 @@ One command. It runs the in-repo deadline experiment (E1) on a freshly generated
 
 ```
 detector             F1  pre@1000ms  pre@5000ms
-rule_threshold    0.511       0.421       0.421
-lr_fast           0.729       0.614       0.614
-rf_fast           0.772       0.684       0.684
-gb_slow           0.713       0.632       0.632
+rule_threshold    0.409       0.333       0.333
+lr_fast           0.667       0.544       0.544
+rf_fast           0.667       0.632       0.632
+gb_slow           0.696       0.684       0.684
 ```
+
+The *fast* config uses a small stream, so these values move by a few points with the BLAS build and the scikit-learn version even under the fixed seed; what should reproduce exactly is the shape, four sub-millisecond detectors whose pre-deadline fraction equals their recall. The full-config numbers the paper reports are in `results/published/` and do reproduce byte for byte.
 
 This confirms the harness runs end to end and writes a real, inspectable `results/e1.json`. The deadline metric only *separates* detectors once one is genuinely slow — that is the LLM-latency study in [Experiments](#experiments) (Claim #1). (Run `uv run --extra dev pytest` for the 30 unit tests; ~9 s.)
 
