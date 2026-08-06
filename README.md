@@ -238,7 +238,7 @@ generator and tested on another.
   recomputes E3/E5/E6. Without it the script reads
   [`results/published/`](results/published) and **says so in its output** rather than implying
   it measured anything.
-- **Expected time:** instant to read. With `--run`, **9 min on a 32-core host and 37 min on a
+- **Expected time:** instant to read. With `--run`, **9 to 12 min on a 32-core host and 37 min on a
   6-core/12-thread Ryzen 5 8600G**, once the data is local; the first run also downloads
   ~1.8 GB of Tide and ~130 MB of pix-fraud-br.
 - **Expected resources:** ~6 GB peak RAM and ~2 GB disk with `--run`, both outside the repo.
