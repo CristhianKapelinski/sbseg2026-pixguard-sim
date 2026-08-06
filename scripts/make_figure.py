@@ -119,7 +119,7 @@ def main(argv: list[str]) -> int:
     ax2.axvspan(lo, hi, color="#0072B2", alpha=0.10, linewidth=0,
                 label="settlement")
     rows = [("rf_fast", "RF", "#009E73", "^"),
-            ("llm_terse", "Local LM, terse", "#D55E00", "s"),
+            ("llm_terse", "Local LM, direct", "#D55E00", "s"),
             ("llm_reasoning", "Local LM, reasoning", "#CC79A7", "o"),
             ("deepseek-v4-flash", "Hosted flash", "#0072B2", "D"),
             ("deepseek-v4-pro", "Hosted pro", "#000000", "v")]
