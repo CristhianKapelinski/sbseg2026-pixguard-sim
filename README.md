@@ -1,6 +1,6 @@
 # PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors
 
-PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness** for fraud detectors targeting Pix, Brazil's instant-payment system. Because Pix settlement is irrevocable and the MED-2.0 regulation (mandatory since 2 February 2026) requires institutions to *block fraud before money settles*, accuracy alone is not enough: a detector must also decide **in time**. PixGuard-Sim scores any detector by the **pre-deadline flag fraction** — the share of frauds flagged within a configurable decision deadline, using each detector's **measured** per-event inference latency — alongside precision, recall, F1, and PR-AUC with 95% confidence intervals. It also ships reference definitions of two Pix-native scenarios absent from open prior work (multi-hop MED-2.0 refund tracing and coercion) and runs the same harness across three independently-authored generators through thin, checksum-pinned adapters. The headline finding: among sub-millisecond tabular detectors the deadline metric reduces to recall, but once a detector is **genuinely slow** the metric separates it from accuracy — a small reasoning LLM (measured mean latency **1463 ms**) flags **0.000** of frauds within a 1000 ms deadline and only recovers to **1.000** at 2000 ms, while a sub-millisecond random forest meets every deadline at strictly higher accuracy (PR-AUC **0.941** vs **0.171**). All inputs are synthetic and ground-truth labeled; no number is a real-world fraud rate.
+PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness** for fraud detectors targeting Pix, Brazil's instant-payment system. Because Pix settlement is irrevocable and the MED-2.0 regulation (mandatory since 2 February 2026) requires institutions to *block fraud before money settles*, accuracy alone is not enough: a detector must also decide **in time**. PixGuard-Sim scores any detector by the **pre-deadline flag fraction** — the share of frauds flagged within a configurable decision deadline, using each detector's **measured** per-event inference latency — alongside precision, recall, F1, and PR-AUC with 95% confidence intervals. It also ships reference definitions of two Pix-native scenarios absent from open prior work (multi-hop MED-2.0 refund tracing and coercion) and runs the same harness across three independently-authored generators through thin, checksum-pinned adapters. The headline finding: among sub-millisecond tabular detectors the deadline metric reduces to recall, but once a detector deliberates the metric separates accuracy from deployability. Two hosted reasoning models score PR-AUC **0.846** and **0.849** on 1000 events without ever seeing the data, and the stronger of them finds **112** of 150 frauds where a random forest trained on 16 193 labelled events finds **93** — yet at the 95th percentile they spend **5025 ms** and **10 329 ms**, so the share of frauds they both flag and decide inside the regulator's 1.5 s authorization budget is **0.000**. Ranking by accuracy alone selects the two detectors that cannot be deployed when the decision is due. All inputs are synthetic and ground-truth labeled; no number is a real-world fraud rate.
 
 > **Paper:** *PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors* (SBSeg 2026).
 
@@ -27,7 +27,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 
 - **SeloD — Available.** Public, open source (MIT), self-contained in this repository; the runnable claims need no external data.
 - **SeloF — Functional.** A single command (the [Minimal Test](#minimal-test)) runs the full pipeline — generate, fit detectors, latency-aware scoring, metrics with CIs — and writes a real `results/e1.json`.
-- **SeloS — Sustainable.** A `src/` layout with one module per concern (`generator.py`, `harness.py`, `metrics.py`, `detectors/`, `scenarios/`, `adapters.py`, `data_io.py`), frozen-dataclass configs, typed and docstringed code, 25 unit tests (`uv run --extra dev pytest`), and a lint-clean `ruff` configuration. Every dependency is pinned in [`pyproject.toml`](pyproject.toml) and [`uv.lock`](uv.lock).
+- **SeloS — Sustainable.** A `src/` layout with one module per concern (`generator.py`, `harness.py`, `metrics.py`, `detectors/`, `scenarios/`, `adapters.py`, `data_io.py`), frozen-dataclass configs, typed and docstringed code, 30 unit tests (`uv run --extra dev pytest`), and a lint-clean `ruff` configuration. Every dependency is pinned in [`pyproject.toml`](pyproject.toml) and [`uv.lock`](uv.lock).
 - **SeloR — Reproducible.** Fixed seeds and content-hashed inputs/outputs give byte-stable generation (experiment E4 checks frame-hash equality). The in-repo claims (E1, E2) reproduce deterministically; the cross-generator runs reproduce within bootstrap CIs from datasets pinned by checksum in `results/data_manifest.json`.
 
 ---
@@ -52,7 +52,8 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [
 - **Core (installed by `uv sync`):** `numpy`, `pandas`, `scikit-learn`, `networkx` — sufficient for the [Minimal Test](#minimal-test) and the in-repo experiments (E1, E2, E4).
 - **Dev (`--extra dev`):** `pytest`, `ruff` — for the unit tests and the linter.
 - **Cross-generator (`--extra datasets`):** `datasets`, `pyarrow`, `xgboost` — only for the cross-generator claim (E3/E5/E6) that scores real third-party data.
-- **Optional baselines:** `--extra gnn` (`torch`) for the GraphSAGE baseline (E7); `--extra llm` (`torch`, `transformers`, `accelerate`) for the LLM-latency study (E8).
+- **Optional baselines:** `--extra gnn` (`torch`) for the GraphSAGE baseline (E7); `--extra llm` (`torch`, `transformers`, `accelerate`) for the on-machine language-model study (E8). The hosted-model study (E9) needs neither, only network.
+- **Figures (`--extra figures`):** `matplotlib` — for the figure scripts under `scripts/`.
 
 **Third-party inputs are auto-fetched.** The two public generators are downloaded on demand by [`scripts/exp_cross_generator.sh`](scripts/exp_cross_generator.sh): Tide HI/LI from Zenodo (`10.5281/zenodo.18804069`, CC BY 4.0) and pix-fraud-br from Hugging Face (`andremessina/pix-fraud-br`, ODC-BY), both over HTTPS. Each file is verified against the provider-published checksum and pinned in `results/data_manifest.json`; a missing or mismatched file raises a typed error rather than fabricating a result. No dataset bytes are vendored in the repository.
 
@@ -61,7 +62,7 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [
 ## Security Concerns
 
 - The tool runs **entirely locally** over synthetic data; it runs no untrusted code and ships no container required for the review.
-- **Network** is used only by the optional cross-generator claim, which fetches the two named public datasets over HTTPS (Zenodo, Hugging Face). The minimal test and the main claim need no network.
+- **Network** is used by the optional cross-generator claim, which fetches the two named public datasets over HTTPS (Zenodo, Hugging Face), and by the hosted-model experiment (E9, `scripts/run_hosted_llm.py`), which calls a reasoning model one transfer per request. E9 sends its requests to a local forwarding endpoint (`http://127.0.0.1:8080/v1/messages`) that holds the provider credential, so no key is read or stored by this repository. The minimal test and the in-repo experiments need no network.
 - **No credentials** are stored in the repository. The external data root is never hardcoded — it is read from the `--data-dir` flag or the `PIXGUARD_DATA_DIR` environment variable, and downloads land in a scratch directory outside the repo (gitignored).
 
 ---
@@ -104,7 +105,7 @@ rf_fast           0.772       0.684       0.684
 gb_slow           0.713       0.632       0.632
 ```
 
-This confirms the harness runs end to end and writes a real, inspectable `results/e1.json`. The deadline metric only *separates* detectors once one is genuinely slow — that is the LLM-latency study in [Experiments](#experiments) (Claim #1). (Run `uv run --extra dev pytest` for the 25 unit tests; ~1.5 s.)
+This confirms the harness runs end to end and writes a real, inspectable `results/e1.json`. The deadline metric only *separates* detectors once one is genuinely slow — that is the LLM-latency study in [Experiments](#experiments) (Claim #1). (Run `uv run --extra dev pytest` for the 30 unit tests; ~9 s.)
 
 ---
 
@@ -122,7 +123,7 @@ Each claim below is **one command**. The in-repo claims default to a **fast** va
 
 ### Claim #1 (MAIN) — The deadline metric separates a genuinely slow detector from accuracy
 
-**Description.** The deadline metric is driven by each detector's *measured* per-event latency. For sub-millisecond tabular detectors it equals recall (E1, runnable below). It becomes discriminating only when a detector is slow: a small instruct LLM (Qwen2.5-1.5B) scored one event at a time reaches **1463 ms** mean latency in its reasoning regime, so it flags **0.000** of frauds within a 1000 ms deadline and only recovers to **1.000** at 2000 ms — while a random forest on the same events meets every deadline at strictly higher accuracy (PR-AUC **0.941** vs the LLM's **0.171**). This is the spine claim (C1): a heavyweight detector can be both slower than the decision window and no more accurate, and only the latency-aware metric exposes it.
+**Description.** The deadline metric is driven by each detector's *measured* per-event latency. For sub-millisecond tabular detectors it equals recall (E1, runnable below). It becomes discriminating only when a detector deliberates. A small instruct LLM (Qwen2.5-1.5B) scored one event at a time answers in **109 ms** on this machine and reaches PR-AUC **0.160**, at chance: fast and useless. Two hosted reasoning models on the same 1000 events reach PR-AUC **0.846** and **0.849**, above the random forest's recall on the fraud side, but spend **5025 ms** and **10 329 ms** at the 95th percentile, so their pre-deadline fraction at the regulator's 1.5 s budget is **0.000**. This is the spine claim (C1): the most accurate detector can be the one that cannot answer in time, and only the latency-aware metric exposes it.
 
 ```bash
 ./scripts/exp_e1_deadline.sh            # add --full for the paper's full config
@@ -130,7 +131,35 @@ Each claim below is **one command**. The in-repo claims default to a **fast** va
 
 - **Expected time:** ~4 s fast (measured: 3.6 s); ~19 s full (measured: 18.98 s).
 - **Expected resources:** < 1 GB RAM, negligible disk.
-- **Expected result (full config, in `results/e1.json`):** the four tabular detectors are all sub-millisecond, so each detector's pre@1000ms equals its recall (e.g. `rf_fast` F1 = 0.797, PR-AUC = 0.844, pre@1000ms = 0.728). The metric therefore adds nothing over recall *here* — by design. The LLM realization (E8, reasoning LLM pre@1000ms = **0.000** → pre@2000ms = **1.000** at PR-AUC 0.171 vs the random forest's 0.941) requires the `llm` extra and a model download; its captured output ships in `results/e8.json` and `DOCUMENTATION.md`.
+- **Expected result (full config, in `results/e1.json`):** the four tabular detectors are all sub-millisecond, so each detector's pre@1000ms equals its recall (e.g. `rf_fast` F1 = 0.684, PR-AUC = 0.743, pre@1000ms = 0.622). The metric therefore adds nothing over recall *here* — by design. It starts to bind in E8 and E9, where the language models are slow enough for latency to matter; the captured outputs ship in `results/published/e8.json` and `results/published/e9_hosted.json`.
+
+### Reproducing the language-model experiments (E8 and E9)
+
+E8 measures a small instruct model on the machine that runs the harness; E9 scores the **same 1000 events, drawn with the same seed**, through hosted reasoning models. Both are optional: the first needs a model download, the second needs network.
+
+```bash
+uv run --extra llm pixguard-sim --config configs/default.json run --experiments E8
+uv run python scripts/run_hosted_llm.py --models deepseek-v4-flash,deepseek-v4-pro
+```
+
+`run_hosted_llm.py` sends every request to `http://127.0.0.1:8080/v1/messages`, a local endpoint you point at your provider; it holds the credential, so nothing here reads or stores a key. It writes `results/e9_hosted.json` incrementally, one detector at a time, and records a concurrency check (the same requests timed serially and in parallel) so the bounded parallelism is shown not to distort the per-request latency the deadline metric reads.
+
+- **Expected result (E8, `results/published/e8.json`):** `llm_terse` 60 ms mean at PR-AUC 0.201, `llm_reasoning` 109 ms at 0.160, `rf_fast` sub-millisecond at 0.931. All three clear a 1000 ms deadline.
+- **Expected result (E9, `results/published/e9_hosted.json`):** PR-AUC 0.846 and 0.849, p95 latency 5025 ms and 10 329 ms, `pre_deadline_1500ms` 0.000 for both.
+
+### Regenerating the figures and the paper macros
+
+The figure scripts read the committed results and the generated event stream, so generate the stream first:
+
+```bash
+uv run pixguard-sim generate --output data/events.csv
+uv run --extra figures python scripts/make_figure.py results/published figs/fig_results.pdf data/events.csv
+uv run --extra figures python scripts/make_dataset_figures.py
+uv run --extra figures python scripts/make_pipeline_figure.py results/published figs/pipeline.pdf data/events.csv
+uv run python scripts/make_macros.py results/published        # LaTeX macros, printed to stdout
+```
+
+Every number in the paper is emitted by `make_macros.py` from `results/published/*.json`; the prose hardcodes none of them.
 
 ### Claim #2 — Single-hop-trained detectors collapse on the two new Pix-native scenarios
 
@@ -142,7 +171,7 @@ Each claim below is **one command**. The in-repo claims default to a **fast** va
 
 - **Expected time:** ~3 s fast (measured: 2.8 s); ~13 s full (measured: 13.0 s).
 - **Expected resources:** < 1 GB RAM, negligible disk.
-- **Expected result (full config, `rf_single_hop`, in `results/e2.json`):** recall 0.909 on `account_takeover`, **0.000** on `coercion` (the structural collapse), 0.526 on `fake_med_refund` (multi-hop MED-2.0), and 0.846 on `mule_chain`. The fast config is noisier on the small per-scenario counts; run `--full` to reproduce the paper values.
+- **Expected result (full config, `rf_single_hop`, in `results/e2.json`):** recall 0.736 on `account_takeover`, 0.433 on `mule_chain`, 0.282 on `fake_med_refund` (multi-hop MED-2.0), and 0.146 on `coercion`. Accuracy falls monotonically as the scenario moves away from the single case the detector saw in training. The fast config is noisier on the small per-scenario counts; run `--full` to reproduce the paper values.
 
 ### Claim #3 — Cross-generator credibility on three independently-authored generators
 
@@ -154,7 +183,7 @@ Each claim below is **one command**. The in-repo claims default to a **fast** va
 
 - **Expected time:** ~13 min once the data is local (measured: 773 s for the three experiments); the first run also downloads ~2 GB. Requires the `datasets` extra (the script invokes `uv run --extra datasets`).
 - **Expected resources:** ~6 GB RAM peak, ~2 GB disk for the downloads (outside the repo).
-- **Expected result (in `results/published/e3.json`, `e5.json`, `e6.json`):** on pix-fraud-br, XGBoost reaches PR-AUC 0.935; the dataset's own published baseline reports 0.865 on different splits and features, so the two are not directly comparable. On rare-illicit Tide the best PR-AUC drops to ~0.52. Cross-source transfer collapses (ours → pix-fraud-br PR-AUC 0.016, pix-fraud-br → ours 0.071) against 0.84–0.99 in-distribution.
+- **Expected result (in `results/published/e3.json`, `e5.json`, `e6.json`):** on pix-fraud-br scored with its own features, XGBoost reaches PR-AUC 0.920; the dataset's own published baseline reports 0.865 on different splits and features, so the two are not directly comparable. Reduced to the four columns every source shares, the same dataset falls to 0.137. On rare-illicit Tide the best PR-AUC is 0.250 (HI) and 0.280 (LI). Cross-source transfer collapses: ours → pix-fraud-br 0.021 and pix-fraud-br → ours 0.281, against 0.743 in-distribution on our own data.
 
 > Reviewers may skip the run and inspect the committed `results/published/*.json` plus `DOCUMENTATION.md`, which records every command and its real captured output.
 

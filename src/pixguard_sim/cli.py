@@ -151,12 +151,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     gen.set_defaults(func=cmd_generate)
 
-    run = sub.add_parser("run", help="Run experiments E1-E7.")
+    # The list is read from the registry: a hand-written one goes stale the
+    # moment an experiment is added, and here it did, promising E1-E7 while the
+    # default already ran E8, which downloads a model.
+    names = " ".join(EXPERIMENTS)
+    run = sub.add_parser("run", help=f"Run experiments ({names}).")
     run.add_argument(
         "--experiments",
         nargs="*",
         default=None,
-        help="Subset of E1 E2 E3 E4 E5 E6 E7 (default: all).",
+        help=f"Subset of {names} (default: all of them; E8 needs the llm extra "
+             "and downloads a model on first use).",
     )
     run.set_defaults(func=cmd_run)
 
