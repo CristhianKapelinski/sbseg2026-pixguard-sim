@@ -92,13 +92,14 @@ def main(argv: list[str]) -> int:
         if 10 <= d <= 12000:
             ax1.axvline(d, color="#888", linewidth=0.5, linestyle="--", alpha=0.5)
     ax1.annotate(f"grey: swept deadlines {sweep[0]}–{sweep[-1]}\u2009ms",
-                 xy=(0.03, 0.73), xycoords="axes fraction", fontsize=5.0,
+                 xy=(0.03, 0.985), xycoords="axes fraction", fontsize=5.0,
                  color="#777", ha="left", va="top")
     ax1.axvline(1500.0, color="#B00", linewidth=0.9, linestyle="-.", zorder=2)
     # Labelled with the sweep marks rather than along the line, which would run
     # through the curve.
-    ax1.annotate("1500\u2009ms: the budget", xy=(1500.0, 1.05), xytext=(2, 0),
-                 textcoords="offset points", fontsize=5.5, color="#B00")
+    ax1.annotate("1500\u2009ms:\nthe budget", xy=(1500.0, 1.00), xytext=(-3, 0),
+                 textcoords="offset points", fontsize=5.0, color="#B00",
+                 ha="right", va="top")
     ax1.set_xscale("log")
     ax1.set_xlim(10, 12000)
     ax1.set_ylim(-0.03, 1.20)
@@ -108,7 +109,7 @@ def main(argv: list[str]) -> int:
     ax1.set_ylabel("share settled")
     ax1.grid(True, linestyle=":", linewidth=0.4)
     ax1.set_axisbelow(True)
-    ax1.annotate(f"n={len(window):,} events", xy=(0.03, 0.97), xycoords="axes fraction",
+    ax1.annotate(f"n={len(window):,} events", xy=(0.03, 0.90), xycoords="axes fraction",
                  ha="left", va="top", fontsize=5.5, color="#333")
     ax1.set_title("(a) settlement window vs. deadlines")
 
@@ -140,7 +141,7 @@ def main(argv: list[str]) -> int:
             ax2.plot(max(mean, 1e-3), ypos, marker=marker, color=colour,
                      markersize=4, linestyle="none")
             pending.append((max(mean, 1e-3), ypos,
-                            f"{mean:.3f} ms/event (batch mean)", colour))
+                            f"{mean:.3f} ms/event", colour))
     ax2.set_yticks(range(len(rows)))
     ax2.set_yticklabels([lab for _, lab, _, _ in reversed(rows)], fontsize=5.5)
     ax2.set_xscale("log")
@@ -156,8 +157,8 @@ def main(argv: list[str]) -> int:
     ax2.legend(loc="lower left", framealpha=0.9, borderpad=0.25,
                fontsize=5, handlelength=1.6, labelspacing=0.3)
     ax2.annotate(f"n={e8['n_subsample']:,} events, {e8['n_fraud_subsample']:,} fraud",
-                 xy=(0.985, 0.02), xycoords="axes fraction", ha="right", va="bottom",
-                 fontsize=5.5, color="#333")
+                 xy=(0.985, 0.985), xycoords="axes fraction", ha="right", va="top",
+                 fontsize=5.0, color="#333")
     ax2.set_title("(b) decision latency vs. that window")
 
     # Panel (c): per-scenario recall, single-hop-trained (E2), with Wilson CIs.

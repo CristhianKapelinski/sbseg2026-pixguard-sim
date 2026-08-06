@@ -243,7 +243,9 @@ def main() -> int:
             cmd(k + "PRAUC", f3(b["pr_auc"]))
             cmd(k + "Prec", f3(b["precision"]))
             cmd(k + "Rec", f3(b["recall"]))
-            cmd(k + "Lat", _thousands(int(round(s["median_ms"]))))
+            # The table header reads "mean / p95", so this is the mean; the
+            # local detectors above already emit the mean under the same name.
+            cmd(k + "Lat", _thousands(int(round(s["mean_ms"]))))
             cmd(k + "LatPgo", _thousands(int(round(s["p95_ms"]))))
             cmd(k + "Budget", f"{100 * det['budget_share_p95']:.0f}\\%")
             cmd(k + "Tokens", str(det["new_tokens_median"]))
