@@ -146,7 +146,7 @@ def main(argv: list[str]) -> int:
     ax2.set_yticklabels([lab for _, lab, _, _ in reversed(rows)], fontsize=5.5)
     ax2.set_xscale("log")
     ax2.set_xlim(1e-3, 60000)
-    ax2.set_ylim(-1.25, len(rows) - 0.25)
+    ax2.set_ylim(-1.75, len(rows) - 0.25)
     ax2.set_xlabel("measured decision latency (ms, log)")
     ax2.grid(True, axis="x", linestyle=":", linewidth=0.4)
     ax2.set_axisbelow(True)
@@ -154,8 +154,15 @@ def main(argv: list[str]) -> int:
         _label(ax2, lx, ly, text, colour, dy=5)
     ax2.axvline(1500.0, color="#B00", linewidth=0.9, linestyle="-.", zorder=1,
                 label="1.5 s budget")
-    ax2.legend(loc="lower left", framealpha=0.9, borderpad=0.25,
-               fontsize=5, handlelength=1.6, labelspacing=0.3)
+    from matplotlib.lines import Line2D  # noqa: PLC0415
+    encoding = Line2D([0], [0], color="#555", linewidth=4.5, alpha=0.45,
+                      marker="o", markersize=4, markerfacecolor="#555",
+                      markeredgecolor="#555",
+                      label="bar: min to max; marker: median")
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles + [encoding], labels + [encoding.get_label()],
+               loc="lower left", framealpha=0.9, borderpad=0.25,
+               fontsize=5, handlelength=1.8, labelspacing=0.3)
     ax2.annotate(f"n={e8['n_subsample']:,} events, {e8['n_fraud_subsample']:,} fraud",
                  xy=(0.985, 0.985), xycoords="axes fraction", ha="right", va="top",
                  fontsize=5.0, color="#333")
