@@ -20,6 +20,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 | [Minimal Test](#minimal-test) | One command that exercises the real pipeline end to end |
 | [Experiments](#experiments) | Reproduction of the paper's claims, one designated main claim |
 | [License](#license) | Licensing information |
+| [Optional commands](OPTIONAL_COMMANDS.md) | Commands outside the reviewer path: E4, E7, E8, E9, per-figure scripts |
 | [How to cite](#how-to-cite) | Paper reference and machine-readable `CITATION.cff` |
 
 ---
@@ -130,11 +131,6 @@ one exception, and says so in its own output.
 | #2 Single-hop training collapses on the two Pix-native scenarios | E2 | in-repo | yes, ~14 s | |
 | #3 Cross-generator credibility on three independently authored generators | E3, E5, E6 | Tide + pix-fraud-br | only with `--run` (~2 GB, ~13 min) | |
 
-> **E4** (determinism) and **E7** (the optional GraphSAGE baseline) are not reviewer steps.
-> E4 is `uv run pixguard-sim --config configs/default.json run --experiments E4`, which writes
-> `"deterministic": true`; E7 needs the `gnn` extra and its numbers are in
-> [`results/published/e7.json`](results/published/e7.json).
-
 ### Claim #1 (MAIN): the deadline metric is driven by measured latency, so accuracy alone selects detectors that cannot answer in time
 
 **Paper reference:** Section *The deadline metric*, Table 1 and Table 2.
@@ -154,7 +150,7 @@ command below verifies the first half and the published outputs carry the second
 ./scripts/claim1.sh
 ```
 
-- **Expected time:** ~21 s measured on the reference machine.
+- **Expected time:** 21 s on the reference machine, 12 s on a 32-core server.
 - **Expected resources:** ~0.8 GB peak RAM, negligible disk. No GPU, no network.
 - **Expected result:**
 
@@ -162,25 +158,27 @@ command below verifies the first half and the published outputs carry the second
 ══════════════════════════════════════════════════════════════════
   Claim #1  The deadline metric is driven by measured latency  (MAIN CLAIM)
 ──────────────────────────────────────────────────────────────────
-  rule_threshold F1              : 0.443        (paper 0.443)     OK
-  rule_threshold PR-AUC          : 0.431        (paper 0.431)     OK
-  lr_fast F1                     : 0.639        (paper 0.639)     OK
-  lr_fast PR-AUC                 : 0.706        (paper 0.706)     OK
-  rf_fast F1                     : 0.684        (paper 0.684)     OK
-  rf_fast PR-AUC                 : 0.743        (paper 0.743)     OK
-  rf_fast recall                 : 0.622        (paper 0.622)     OK
-  pre@1000ms equals recall       : yes          (paper yes)       OK
+  rule_threshold F1              : 0.443        (paper 0.443)           OK
+  rule_threshold PR-AUC          : 0.431        (paper 0.431)           OK
+  lr_fast F1                     : 0.639        (paper 0.639)           OK
+  lr_fast PR-AUC                 : 0.706        (paper 0.706)           OK
+  rf_fast F1                     : 0.684        (paper 0.684)           OK
+  rf_fast PR-AUC                 : 0.743        (paper 0.743)           OK
+  rf_fast recall                 : 0.622        (paper 0.622)           OK
+  pre@1000ms equals recall       : yes          (paper yes)             OK
   slowest per-event latency (ms) : 0.0030      
 ──────────────────────────────────────────────────────────────────
   source of these numbers        : recomputed on this machine just now
-  wall clock on this machine     : 21 s
-  peak memory on this machine    : 791 MB
+  wall clock on this machine     : XXX s
+  peak memory on this machine    : XXX MB
 ──────────────────────────────────────────────────────────────────
   RESULT: OK   (8/8 gated values match the paper)
 ══════════════════════════════════════════════════════════════════
 ```
 
-The wall clock and peak memory are yours, not the paper's, and are never gated.
+`XXX` marks the two lines that are yours rather than the paper's: wall clock and peak memory
+depend on the machine, are reported for your information, and are never gated. Measured on two
+hosts: 21 s / 791 MB on a Ryzen 5 8600G and 12 s / 214 MB on a 32-core server.
 
 ### Claim #2: a detector trained only on the single-hop case collapses on coercion and multi-hop MED-2.0 refunds
 
@@ -196,7 +194,7 @@ looks ordinary by construction.
 ./scripts/claim2.sh
 ```
 
-- **Expected time:** ~14 s measured on the reference machine.
+- **Expected time:** 14 s on the reference machine, 8 s on a 32-core server.
 - **Expected resources:** ~0.8 GB peak RAM, negligible disk. No GPU, no network.
 - **Expected result:**
 
@@ -204,14 +202,18 @@ looks ordinary by construction.
 ══════════════════════════════════════════════════════════════════
   Claim #2  Single-hop training collapses on the Pix-native scenarios
 ──────────────────────────────────────────────────────────────────
-  recall, account_takeover       : 0.736        (paper 0.736)     OK
-    N, account_takeover          : 53           (paper 53)        OK
-  recall, mule_chain             : 0.433        (paper 0.433)     OK
-    N, mule_chain                : 60           (paper 60)        OK
-  recall, fake_med_refund        : 0.282        (paper 0.282)     OK
-    N, fake_med_refund           : 39           (paper 39)        OK
-  recall, coercion               : 0.146        (paper 0.146)     OK
-    N, coercion                  : 41           (paper 41)        OK
+  recall, account_takeover       : 0.736        (paper 0.736)           OK
+    N, account_takeover          : 53           (paper 53)              OK
+  recall, mule_chain             : 0.433        (paper 0.433)           OK
+    N, mule_chain                : 60           (paper 60)              OK
+  recall, fake_med_refund        : 0.282        (paper 0.282)           OK
+    N, fake_med_refund           : 39           (paper 39)              OK
+  recall, coercion               : 0.146        (paper 0.146)           OK
+    N, coercion                  : 41           (paper 41)              OK
+──────────────────────────────────────────────────────────────────
+  source of these numbers        : recomputed on this machine just now
+  wall clock on this machine     : XXX s
+  peak memory on this machine    : XXX MB
 ──────────────────────────────────────────────────────────────────
   RESULT: OK   (8/8 gated values match the paper)
 ══════════════════════════════════════════════════════════════════
@@ -236,8 +238,9 @@ generator and tested on another.
   recomputes E3/E5/E6. Without it the script reads
   [`results/published/`](results/published) and **says so in its output** rather than implying
   it measured anything.
-- **Expected time:** instant to read; **~13 min** with `--run` once the data is local, plus the
-  download on first use.
+- **Expected time:** instant to read. With `--run`, **9 min on a 32-core host and 37 min on a
+  6-core/12-thread Ryzen 5 8600G**, once the data is local; the first run also downloads
+  ~1.8 GB of Tide and ~130 MB of pix-fraud-br.
 - **Expected resources:** ~6 GB peak RAM and ~2 GB disk with `--run`, both outside the repo.
 - **Expected result:**
 
@@ -245,21 +248,30 @@ generator and tested on another.
 ══════════════════════════════════════════════════════════════════
   Claim #3  Cross-generator credibility on three generators
 ──────────────────────────────────────────────────────────────────
-  pix-fraud-br XGBoost PR-AUC    : 0.920        (paper 0.920)     OK
-    its published baseline       : 0.865        (paper 0.865)     OK
-    on shared columns only       : 0.137        (paper 0.137)     OK
-  Tide HI XGBoost PR-AUC         : 0.250        (paper 0.250)     OK
-  Tide LI XGBoost PR-AUC         : 0.280        (paper 0.280)     OK
-  transfer ours -> pix-fraud-br  : 0.021        (paper 0.021)     OK
-  transfer pix-fraud-br -> ours  : 0.281        (paper 0.281)     OK
-  in-distribution, ours          : 0.743        (paper 0.743)     OK
+  pix-fraud-br XGBoost PR-AUC    : 0.920        (paper 0.920 +/-0.01)   OK
+    its published baseline       : 0.865        (paper 0.865)           OK
+    on shared columns only       : 0.137        (paper 0.137)           OK
+  Tide HI XGBoost PR-AUC         : 0.250        (paper 0.250 +/-0.01)   OK
+  Tide LI XGBoost PR-AUC         : 0.280        (paper 0.280 +/-0.01)   OK
+  transfer ours -> pix-fraud-br  : 0.021        (paper 0.021)           OK
+  transfer pix-fraud-br -> ours  : 0.281        (paper 0.281)           OK
+  in-distribution, ours          : 0.743        (paper 0.743)           OK
 ──────────────────────────────────────────────────────────────────
   source of these numbers        : read from the committed campaign
                                    (results/published); pass --run to regenerate it here
+  wall clock on this machine     : 0 s
 ──────────────────────────────────────────────────────────────────
   RESULT: OK   (8/8 gated values match the paper)
 ══════════════════════════════════════════════════════════════════
 ```
+
+**On `--run` the three XGBoost rows are compared with a declared tolerance of ±0.01, and the
+block shows it.** Two independent hosts, both installing xgboost 3.2.0 from the committed
+lock, produce 0.913, 0.258 and 0.276: they agree with each other to the third decimal and sit
+at most 0.008 from the published campaign, which predates the current pin. Every other row on
+this claim comes from a deterministic detector and is compared exactly, so a real regression
+still fails the gate. Reading the committed campaign (the command without `--run`) matches
+the paper exactly on all eight.
 
 The 0.920 and the dataset's published 0.865 are **not** comparable: they use different splits
 and different features. What the drop to 0.137 shows is the same dataset scored on the four
@@ -282,35 +294,12 @@ checks all 158 of them against the frozen camera-ready block.
   check. This needs matplotlib 3.11, which is why the project requires Python 3.11 or newer;
   on 3.10 the pinned range resolves to matplotlib 3.10 and the figures come out subtly different.
 
-### Optional: the language-model experiments (E8 and E9)
+### Commands that are not part of the reviewer path
 
-Neither is required for a claim. E8 measures a small instruct model on this machine and needs a
-model download; E9 scores the same 1000 events through hosted models and needs a credential.
-
-```bash
-uv run --extra llm pixguard-sim --config configs/default.json run --experiments E8
-./scripts/llm_smoke.sh
-```
-
-`llm_smoke.sh` is the cheap way to see the deadline bind on a real round trip: it scores **ten**
-events through one flash-tier hosted model instead of the paper's 1000 through two reasoning
-models, which is enough to measure per-request latency against the 1.5 s budget and costs
-almost nothing. Accuracy on ten events is meaningless, so it reports timing and gates on
-nothing. Supply your own credential with `PIXGUARD_LLM_API_KEY` and point
-`PIXGUARD_LLM_ENDPOINT` at your provider; the key is read from the environment, never written
-to a results file and never stored in this repository. Left unset, requests go to a local
-forwarder on `127.0.0.1:8080` instead. `PIXGUARD_LLM_MODEL` and `PIXGUARD_LLM_SMOKE_N` override
-the model and the event count.
-
-Full E9 as the paper ran it:
-
-```bash
-uv run python scripts/run_hosted_llm.py --models deepseek-v4-flash,deepseek-v4-pro
-```
-
-Its captured outputs ship in [`results/published/e8.json`](results/published/e8.json) and
-[`results/published/e9_hosted.json`](results/published/e9_hosted.json): PR-AUC 0.846 and 0.849,
-p95 latency 5025 ms and 10 329 ms, `pre_deadline_1500ms` 0.000 for both.
+The language-model experiments (E8, E9), the determinism check (E4), the GraphSAGE
+baseline (E7), the cheap hosted-model latency check, and the per-figure scripts are in
+[`OPTIONAL_COMMANDS.md`](OPTIONAL_COMMANDS.md). None of them is needed for a claim or a
+seal; each costs a model download, a GPU, a credential, or a large fetch.
 
 ---
 
