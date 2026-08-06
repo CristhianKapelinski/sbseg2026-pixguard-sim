@@ -10,14 +10,12 @@ resource under a page limit:
 collapse on the PIX-native scenarios; (d) PR-AUC with 95% bootstrap CIs across
 the in-repo, pix-fraud-br, and real Tide HI/LI generators (E3/E5).
 
-Panels (a) and (b) are the two clocks the deadline metric involves. They
-replace an earlier pre-deadline-fraction-vs-deadline panel: that curve is a
-step function recoverable from a detector's latency span and its recall, so it
-said nothing these two do not, and it hid where settlement falls.
+Panels (a) and (b) are the two clocks the deadline metric involves.
 
 The figure plots only numbers the harness computed or the generator emitted; it
-fabricates nothing. Where a quantity was not measured, the panel says so rather
-than drawing a plausible shape.
+fabricates nothing. A detector that scores a whole frame in one vectorized call
+has a mean time per event and no per-event spread to draw, so the panel draws a
+point and says the latency is a batch mean, rather than inventing a span.
 
 Usage: python scripts/make_figure.py [results_dir] [output_pdf] [events_csv]
 """
@@ -69,6 +67,7 @@ def main(argv: list[str]) -> int:
     e3 = json.loads((results_dir / "e3.json").read_text(encoding="utf-8"))
     e5 = json.loads((results_dir / "e5.json").read_text(encoding="utf-8"))
     e8 = json.loads((results_dir / "e8.json").read_text(encoding="utf-8"))
+    e9 = json.loads((results_dir / "e9_hosted.json").read_text(encoding="utf-8"))
     events = pd.read_csv(events_csv, usecols=["t_init_ms", "t_settle_ms"])
 
     plt.rcParams.update({
@@ -77,7 +76,7 @@ def main(argv: list[str]) -> int:
         "figure.dpi": 200,
     })
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(
-        1, 4, figsize=(9.6, 2.1), gridspec_kw={"width_ratios": [1, 1.25, 0.85, 0.9]}
+        1, 4, figsize=(9.6, 2.05), gridspec_kw={"width_ratios": [0.95, 1.45, 0.8, 0.85]}
     )
 
     # Panel (a): the settlement clock the events carry. A companion "share
@@ -107,14 +106,17 @@ def main(argv: list[str]) -> int:
                  ha="left", va="top", fontsize=5.5, color="#333")
     ax1.set_title("(a) settlement window vs. deadlines")
 
-    # Panel (b): measured decision latency on the same axis. A detector whose
-    # per-event spread was not published gets a labelled point, not a span.
+    # Panel (b): measured decision latency on the same axis. A detector scored
+    # frame-at-a-time has only a mean time per event, so it gets a labelled
+    # point rather than a span it never produced.
     ax2.axvspan(lo, hi, color="#0072B2", alpha=0.10, linewidth=0,
                 label="settlement window")
     rows = [("rf_fast", "RF", "#009E73", "^"),
-            ("llm_terse", "Terse LM", "#D55E00", "s"),
-            ("llm_reasoning", "Reasoning LM", "#CC79A7", "o")]
-    by_name = {d["detector"]: d for d in e8["detectors"]}
+            ("llm_terse", "Local LM, terse", "#D55E00", "s"),
+            ("llm_reasoning", "Local LM, reasoning", "#CC79A7", "o"),
+            ("deepseek-v4-flash", "Hosted flash", "#0072B2", "D"),
+            ("deepseek-v4-pro", "Hosted pro", "#000000", "v")]
+    by_name = {d["detector"]: d for d in e8["detectors"] + e9["detectors"]}
     pending: list[tuple[float, float, str, str]] = []
     for i, (key, label, colour, marker) in enumerate(rows):
         det = by_name[key]
@@ -132,20 +134,23 @@ def main(argv: list[str]) -> int:
             ax2.plot(max(mean, 1e-3), ypos, marker=marker, color=colour,
                      markersize=4, linestyle="none")
             pending.append((max(mean, 1e-3), ypos,
-                            f"mean {mean:.3f} ms (spread not published)", colour))
+                            f"{mean:.3f} ms/event (batch mean)", colour))
     ax2.set_yticks(range(len(rows)))
-    ax2.set_yticklabels([lab for _, lab, _, _ in reversed(rows)], fontsize=6)
+    ax2.set_yticklabels([lab for _, lab, _, _ in reversed(rows)], fontsize=5.5)
     ax2.set_xscale("log")
-    ax2.set_xlim(1e-3, 12000)
-    ax2.set_ylim(-0.6, len(rows) - 0.35)
+    ax2.set_xlim(1e-3, 60000)
+    ax2.set_ylim(-1.25, len(rows) - 0.25)
     ax2.set_xlabel("measured decision latency (ms, log)")
     ax2.grid(True, axis="x", linestyle=":", linewidth=0.4)
     ax2.set_axisbelow(True)
     for lx, ly, text, colour in pending:  # placed once the axis bounds are final
         _label(ax2, lx, ly, text, colour, dy=5)
-    ax2.legend(loc="lower left", framealpha=0.9, borderpad=0.3)
+    ax2.axvline(1500.0, color="#B00", linewidth=0.9, linestyle="-.", zorder=1,
+                label="1.5 s authorization budget")
+    ax2.legend(loc="lower left", framealpha=0.9, borderpad=0.25,
+               fontsize=5, handlelength=1.6, labelspacing=0.3)
     ax2.annotate(f"n={e8['n_subsample']:,} events, {e8['n_fraud_subsample']:,} fraud",
-                 xy=(0.03, 0.97), xycoords="axes fraction", ha="left", va="top",
+                 xy=(0.985, 0.04), xycoords="axes fraction", ha="right", va="bottom",
                  fontsize=5.5, color="#333")
     ax2.set_title("(b) decision latency vs. that window")
 
@@ -162,11 +167,17 @@ def main(argv: list[str]) -> int:
         his.append(r.get("ci_hi", v) - v)
     ax3.bar(labels, recalls, color="#444", width=0.6, yerr=[los, his], capsize=2.5,
             ecolor="#999")
-    ax3.set_ylim(0, 1.05)
+    for x, (v, hi) in enumerate(zip(recalls, his, strict=True)):
+        ax3.annotate(f"{v:.2f}", xy=(x, v + hi), xytext=(0, 2),
+                     textcoords="offset points", ha="center", fontsize=5.5)
+    ax3.set_ylim(0, 1.16)
     ax3.set_ylabel("recall (single-hop trained)")
     ax3.grid(True, axis="y", linestyle=":", linewidth=0.4)
     ax3.set_axisbelow(True)
     ax3.tick_params(axis="x", labelrotation=20, labelsize=6)
+    ns = [det["per_scenario"].get(s, {}).get("recall", {}).get("n", 0) for s in scenarios]
+    ax3.set_xticks(range(len(labels)))
+    ax3.set_xticklabels([f"{lab}\nn={n}" for lab, n in zip(labels, ns, strict=True)])
     ax3.set_title("(c) recall per scenario")
 
     # Panel (d): PR-AUC with 95% CI across generators (in-repo, pfb, Tide HI/LI).
@@ -184,7 +195,10 @@ def main(argv: list[str]) -> int:
     his = [p[2] - v for v, p in zip(vals, pr_all, strict=True)]
     ax4.bar(gens, vals, color="#3b6", width=0.6, yerr=[los, his], capsize=2.5,
             ecolor="#777")
-    ax4.set_ylim(0, 1.05)
+    for x, (v, hi) in enumerate(zip(vals, his, strict=True)):
+        ax4.annotate(f"{v:.2f}", xy=(x, v + hi), xytext=(0, 2),
+                     textcoords="offset points", ha="center", fontsize=5.5)
+    ax4.set_ylim(0, 1.16)
     ax4.set_ylabel("best PR-AUC (95% CI)")
     ax4.grid(True, axis="y", linestyle=":", linewidth=0.4)
     ax4.set_axisbelow(True)

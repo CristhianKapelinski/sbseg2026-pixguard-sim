@@ -62,8 +62,8 @@ class Detector(ABC):
 
     # Mean per-event scoring wall-clock latency (ms), set by
     # ``measure_score_latency_ms`` after a real scoring call. ``inference_budget_ms``
-    # is retained only as descriptive metadata in reports; it is no longer used to
-    # compute the pre-deadline metric.
+    # is descriptive metadata for reports; it does not enter the pre-deadline
+    # metric, which reads the measured latency above.
     measured_latency_ms: float = 0.0
     inference_budget_ms: int = 0
 

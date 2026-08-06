@@ -239,7 +239,6 @@ def fig_dataset(
     # survives the shared schema.
     stats = json.loads(stats_path.read_text(encoding="utf-8"))
     recs = [stats[k].get("as_scored", stats[k]) for k, _, _ in SOURCE_ORDER]
-    pending: list[tuple[float, float, str, str]] = []
     for i, (rec, (_, label, colour)) in enumerate(
         zip(recs, SOURCE_ORDER, strict=True)
     ):
@@ -251,7 +250,12 @@ def fig_dataset(
                  alpha=0.85, solid_capstyle="butt")
         ax3.plot(a["q50"], y, marker="|", color="white", markersize=5,
                  markeredgewidth=1.2, linestyle="none")
-        pending.append((a["q95"], y, f"{a['q50']:,.0f}", colour))
+        # Label the median on the bar itself: anchored at the whisker end it
+        # rode above the top row and left the axes.
+        ax3.annotate(f"{a['q50']:,.0f}", xy=(a["q50"], y), xytext=(0, 6),
+                     textcoords="offset points", ha="center", va="bottom",
+                     fontsize=5.5, color=colour)
+    ax3.set_ylim(-0.6, len(recs) - 0.15)
     ax3.set_yticks(range(len(recs)))
     ax3.set_yticklabels([lab for _, lab, _ in reversed(SOURCE_ORDER)], fontsize=6)
     ax3.set_xscale("log")
@@ -259,8 +263,6 @@ def fig_dataset(
     ax3.set_xlabel("amount (log scale); bar q25-q75, median labelled")
     ax3.grid(True, axis="x")
     ax3.grid(False, axis="y")
-    for lx, ly, text, colour in pending:  # once the axis bounds are final
-        _label(ax3, lx, ly, text, colour, dy=3)
     ax3.set_title("(c) amount scale per source")
 
     # (d) degree distribution of the FULL account graph, log-log.

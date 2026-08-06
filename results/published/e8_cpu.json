@@ -1,0 +1,191 @@
+{
+  "deadline_sweep_ms": [
+    200,
+    1000,
+    2000,
+    5000
+  ],
+  "detectors": [
+    {
+      "batch": {
+        "f1": 0.3281519861830743,
+        "f1_ci_hi": 0.3781988121000046,
+        "f1_ci_lo": 0.2791417859913077,
+        "n_eval": 1000,
+        "n_fraud": 150,
+        "pr_auc": 0.19793910860923136,
+        "pr_auc_ci_hi": 0.23464153646822128,
+        "pr_auc_ci_lo": 0.16385090277134748,
+        "precision": 0.22144522144522144,
+        "precision_ci_hi": 0.2631120596867884,
+        "precision_ci_lo": 0.18472271877650465,
+        "recall": 0.6333333333333333,
+        "recall_ci_hi": 0.7062255543466717,
+        "recall_ci_lo": 0.5537823804885079
+      },
+      "detector": "llm_terse",
+      "measured_mean_latency_ms": 561.226016,
+      "measured_score_total_ms": 561226.016,
+      "per_event_latency_stats_ms": {
+        "max_ms": 766.6608229992562,
+        "mean_ms": 561.0800195819611,
+        "median_ms": 557.5454645004356,
+        "min_ms": 532.101454999065,
+        "p95_ms": 594.5104716507558
+      },
+      "pre_deadline_fraction": {
+        "1000": {
+          "ci_hi": 0.7062255543466717,
+          "ci_lo": 0.5537823804885079,
+          "k": 95,
+          "n": 150,
+          "value": 0.6333333333333333
+        },
+        "200": {
+          "ci_hi": 0.0249702443680766,
+          "ci_lo": 1.734723475976807e-18,
+          "k": 0,
+          "n": 150,
+          "value": 0.0
+        },
+        "2000": {
+          "ci_hi": 0.7062255543466717,
+          "ci_lo": 0.5537823804885079,
+          "k": 95,
+          "n": 150,
+          "value": 0.6333333333333333
+        },
+        "5000": {
+          "ci_hi": 0.7062255543466717,
+          "ci_lo": 0.5537823804885079,
+          "k": 95,
+          "n": 150,
+          "value": 0.6333333333333333
+        }
+      },
+      "unparsed_completions": 0
+    },
+    {
+      "batch": {
+        "f1": 0.26155187445510025,
+        "f1_ci_hi": 0.29523445932149,
+        "f1_ci_lo": 0.22932824156305506,
+        "n_eval": 1000,
+        "n_fraud": 150,
+        "pr_auc": 0.16136333427494942,
+        "pr_auc_ci_hi": 0.1960136817677016,
+        "pr_auc_ci_lo": 0.1342036149214829,
+        "precision": 0.15045135406218657,
+        "precision_ci_hi": 0.17398277716349209,
+        "precision_ci_lo": 0.12960322653654938,
+        "recall": 1.0,
+        "recall_ci_hi": 1.0,
+        "recall_ci_lo": 0.9750297556319235
+      },
+      "detector": "llm_reasoning",
+      "measured_mean_latency_ms": 1078.423145,
+      "measured_score_total_ms": 1078423.145,
+      "per_event_latency_stats_ms": {
+        "max_ms": 5139.994701999967,
+        "mean_ms": 1078.2736729429853,
+        "median_ms": 884.3692675000057,
+        "min_ms": 829.2486489990551,
+        "p95_ms": 3319.0073191000897
+      },
+      "pre_deadline_fraction": {
+        "1000": {
+          "ci_hi": 0.9633881433303926,
+          "ci_lo": 0.8816376448839411,
+          "k": 140,
+          "n": 150,
+          "value": 0.9333333333333333
+        },
+        "200": {
+          "ci_hi": 0.0249702443680766,
+          "ci_lo": 1.734723475976807e-18,
+          "k": 0,
+          "n": 150,
+          "value": 0.0
+        },
+        "2000": {
+          "ci_hi": 0.9963358708487731,
+          "ci_lo": 0.9526930912996325,
+          "k": 148,
+          "n": 150,
+          "value": 0.9866666666666667
+        },
+        "5000": {
+          "ci_hi": 1.0,
+          "ci_lo": 0.9750297556319235,
+          "k": 150,
+          "n": 150,
+          "value": 1.0
+        }
+      },
+      "unparsed_completions": 0
+    },
+    {
+      "batch": {
+        "f1": 0.7622950819672131,
+        "f1_ci_hi": 0.8189710841073928,
+        "f1_ci_lo": 0.6956337509211495,
+        "n_eval": 1000,
+        "n_fraud": 150,
+        "pr_auc": 0.931451327108838,
+        "pr_auc_ci_hi": 0.9584430900466735,
+        "pr_auc_ci_lo": 0.8981090242844217,
+        "precision": 0.9893617021276596,
+        "precision_ci_hi": 0.998119604251912,
+        "precision_ci_lo": 0.9421770870372144,
+        "recall": 0.62,
+        "recall_ci_hi": 0.6937627275355409,
+        "recall_ci_lo": 0.5402444138161206
+      },
+      "detector": "rf_fast",
+      "measured_mean_latency_ms": 0.005331,
+      "measured_score_total_ms": 5.331,
+      "per_event_latency_stats_ms": null,
+      "pre_deadline_fraction": {
+        "1000": {
+          "ci_hi": 0.6937627275355409,
+          "ci_lo": 0.5402444138161206,
+          "k": 93,
+          "n": 150,
+          "value": 0.62
+        },
+        "200": {
+          "ci_hi": 0.6937627275355409,
+          "ci_lo": 0.5402444138161206,
+          "k": 93,
+          "n": 150,
+          "value": 0.62
+        },
+        "2000": {
+          "ci_hi": 0.6937627275355409,
+          "ci_lo": 0.5402444138161206,
+          "k": 93,
+          "n": 150,
+          "value": 0.62
+        },
+        "5000": {
+          "ci_hi": 0.6937627275355409,
+          "ci_lo": 0.5402444138161206,
+          "k": 93,
+          "n": 150,
+          "value": 0.62
+        }
+      },
+      "unparsed_completions": 0
+    }
+  ],
+  "enriched_fraud_rate_subsample": 0.15,
+  "experiment": "E8",
+  "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+  "n_eval_pool": 16193,
+  "n_fraud_subsample": 150,
+  "n_subsample": 1000,
+  "operational_base_rate": 0.011918730315568456,
+  "question": "With real measured latency, does a slow LLM detector miss a realistic pre-settlement deadline that a fast tabular detector meets?",
+  "score_threshold": 0.5,
+  "subsample_is_fraud_enriched": true
+}

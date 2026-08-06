@@ -107,6 +107,23 @@ def main() -> int:
     prrf = e8d["rf_fast"]["pre_deadline_fraction"]
     cmd("ErfPre", f3(prrf["1000"]["value"]))
 
+    # The paper reads every detector against one deadline, the regulator's 1.5 s
+    # authorization budget. The sweep does not evaluate 1500 ms directly, but the
+    # slowest local decision is well under 1000 ms, so each local detector's
+    # fraction at 1500 ms is exactly its fraction at 1000 ms. Assert that rather
+    # than assume it: if a rerun ever pushes a local latency past 1000 ms, this
+    # stops instead of quietly publishing the wrong deadline.
+    for det in ("rf_fast", "llm_terse", "llm_reasoning"):
+        slowest = e8d[det].get("per_event_latency_stats_ms")
+        slowest = slowest["max_ms"] if slowest else e8d[det]["measured_mean_latency_ms"]
+        assert slowest < 1000.0, (
+            f"{det} decides in {slowest:.0f} ms; the 1000 ms sweep point no longer "
+            "stands in for the 1.5 s authorization budget"
+        )
+    cmd("ErfPreBudget", f3(prrf["1000"]["value"]))
+    cmd("EtersePreBudget", f3(e8d["llm_terse"]["pre_deadline_fraction"]["1000"]["value"]))
+    cmd("EreasonPreBudget", f3(pr["1000"]["value"]))
+
     # E5 pix-fraud-br reproduction (PIX-native external anchor).
     cmd("PfbN", _thousands(e5['n_events']))
     cmd("PfbRate", f"{100 * e5['fraud_rate']:.2f}\\%")
@@ -155,6 +172,95 @@ def main() -> int:
         g_t = e7["datasets"]["tide_hi"]["detectors"].get("gnn_sage")
         if g_t:
             cmd("GnnTideHiPRAUC", f3(g_t["batch"]["pr_auc"]))
+
+    # -- hardware normalization. Raw milliseconds describe one machine; the
+    # share of the regulator's authorization budget and the throughput it
+    # implies transfer, because the denominator is published rather than ours.
+    # (Manual de Tempos do Pix v7.0: 1.5 s at the 95th percentile for the
+    # paying institution to authorize at initiation.)
+    AUTH_BUDGET_MS = 1500.0
+
+    def _budget(ms: float) -> str:
+        return f"{100.0 * ms / AUTH_BUDGET_MS:.1f}\\%"
+
+    def _throughput(ms: float) -> str:
+        if ms <= 0:
+            return "--"
+        v = 1000.0 / ms
+        # Below one decision per second, rounding to an integer prints "0".
+        return f"{v:.1f}" if v < 10 else _thousands(int(round(v)))
+
+    e8d = {o["detector"]: o for o in e8["detectors"]}
+    cmd("RfThroughput", _throughput(max(e8d["rf_fast"]["measured_mean_latency_ms"], 1e-6)))
+    for key, pre in (("llm_terse", "Terse"), ("llm_reasoning", "Reason")):
+        s = e8d[key]["per_event_latency_stats_ms"]
+        cmd(pre + "Budget", _budget(s["p95_ms"]))
+        cmd(pre + "Throughput", _throughput(s["p95_ms"]))
+
+    # The budget expressed in the unit that actually governs an LLM's cost.
+    # The marginal cost per generated token is read off the two regimes, which
+    # differ only in how many tokens they emit, so it isolates generation from
+    # the fixed prefill both pay.
+    tt = e8d["llm_terse"].get("new_tokens_median")
+    tr = e8d["llm_reasoning"].get("new_tokens_median")
+    if tt and tr and tr != tt:
+        lt = e8d["llm_terse"]["per_event_latency_stats_ms"]["median_ms"]
+        lr = e8d["llm_reasoning"]["per_event_latency_stats_ms"]["median_ms"]
+        per_token = (lr - lt) / (tr - tt)
+        if per_token > 0:
+            cmd("MsPerToken", f"{per_token:.0f}")
+            cmd("BudgetTokens", str(int(round(AUTH_BUDGET_MS / per_token))))
+        cmd("ReasonTokens", str(int(tr)))
+        cmd("TerseTokens", str(int(tt)))
+
+    # The same detector on a second device, when that run is present.
+    cpu_path = root / "e8_cpu.json"
+    if cpu_path.exists():
+        cpu = json.loads(cpu_path.read_text(encoding="utf-8"))
+        c = {o["detector"]: o for o in cpu["detectors"]}["llm_reasoning"]
+        s = c["per_event_latency_stats_ms"]
+        cmd("ReasonCpuLat", str(int(round(s["mean_ms"]))))
+        cmd("ReasonCpuLatPgo", str(int(round(s["p95_ms"]))))
+        cmd("ReasonCpuLatMin", str(int(round(s["min_ms"]))))
+        cmd("ReasonCpuLatMax", str(int(round(s["max_ms"]))))
+        cmd("ReasonCpuBudget", _budget(s["p95_ms"]))
+        cmd("ReasonCpuThroughput", _throughput(s["p95_ms"]))
+        pdf = c["pre_deadline_fraction"]["1000"]
+        cmd("ReasonCpuPre", f3(pdf["value"] if isinstance(pdf, dict) else pdf))
+
+    # -- hosted reasoning models (e9_hosted.json). Same slice as E8, scored by
+    # models called over the network the way an institution would call them.
+    e9_path = root / "e9_hosted.json"
+    if e9_path.exists():
+        e9 = json.loads(e9_path.read_text(encoding="utf-8"))
+        nf = e9["n_fraud_subsample"]
+        pre = {"deepseek-v4-flash": "Flash", "deepseek-v4-pro": "Pro"}
+        for det in e9["detectors"]:
+            k = pre.get(det["detector"])
+            if not k:
+                continue
+            b, s = det["batch"], det["per_event_latency_stats_ms"]
+            cmd(k + "PRAUC", f3(b["pr_auc"]))
+            cmd(k + "Prec", f3(b["precision"]))
+            cmd(k + "Rec", f3(b["recall"]))
+            cmd(k + "Lat", _thousands(int(round(s["median_ms"]))))
+            cmd(k + "LatPgo", _thousands(int(round(s["p95_ms"]))))
+            cmd(k + "Budget", f"{100 * det['budget_share_p95']:.0f}\\%")
+            cmd(k + "Tokens", str(det["new_tokens_median"]))
+            cmd(k + "Throughput", _throughput(s["p95_ms"]))
+            cmd(k + "Pre", f3(det["pre_deadline_1500ms"]["value"]))
+            # Counts say what a rate cannot: how many frauds this would catch.
+            tp = round(b["recall"] * nf)
+            cmd(k + "TP", str(tp))
+            cmd(k + "FP", str(round(tp / b["precision"]) - tp if b["precision"] else 0))
+        rf = {o["detector"]: o for o in e8["detectors"]}["rf_fast"]["batch"]
+        rftp = round(rf["recall"] * nf)
+        cmd("RfTP", str(rftp))
+        cmd("RfFP", str(round(rftp / rf["precision"]) - rftp if rf["precision"] else 0))
+        # The chance level a PR-AUC on this slice must be read against, and the
+        # denominator the false alarms are counted out of.
+        cmd("EightBaseSlice", f3(nf / e9["n_subsample"]))
+        cmd("EightLegit", _thousands(e9["n_subsample"] - nf))
 
     # -- dataset description (dataset_stats.json, written by
     # make_source_stats.py). These describe the streams the detectors were

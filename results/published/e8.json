@@ -24,14 +24,15 @@
         "recall_ci_lo": 0.5470058519845729
       },
       "detector": "llm_terse",
-      "measured_mean_latency_ms": 61.197,
-      "measured_score_total_ms": 61197.0,
+      "measured_mean_latency_ms": 59.805341,
+      "measured_score_total_ms": 59805.341,
+      "new_tokens_median": 5,
       "per_event_latency_stats_ms": {
-        "max_ms": 76.28803099942161,
-        "mean_ms": 61.05658685705566,
-        "median_ms": 60.80192899935355,
-        "min_ms": 58.13191700144671,
-        "p95_ms": 63.6848348471176
+        "max_ms": 69.89644399800454,
+        "mean_ms": 59.6684974529453,
+        "median_ms": 59.53736400078924,
+        "min_ms": 57.672258000820875,
+        "p95_ms": 61.839322502601135
       },
       "pre_deadline_fraction": {
         "1000": {
@@ -83,14 +84,15 @@
         "recall_ci_lo": 0.9632071602251817
       },
       "detector": "llm_reasoning",
-      "measured_mean_latency_ms": 114.469681,
-      "measured_score_total_ms": 114469.681,
+      "measured_mean_latency_ms": 109.290563,
+      "measured_score_total_ms": 109290.563,
+      "new_tokens_median": 8,
       "per_event_latency_stats_ms": {
-        "max_ms": 726.0937829996692,
-        "mean_ms": 114.32701049098978,
-        "median_ms": 100.86460400088981,
-        "min_ms": 96.54581400172901,
-        "p95_ms": 108.86388714934583
+        "max_ms": 707.5493699994695,
+        "mean_ms": 109.15168657905087,
+        "median_ms": 96.54090850017383,
+        "min_ms": 93.22222099945066,
+        "p95_ms": 102.64156134981022
       },
       "pre_deadline_fraction": {
         "1000": {
@@ -142,8 +144,9 @@
         "recall_ci_lo": 0.5402444138161206
       },
       "detector": "rf_fast",
-      "measured_mean_latency_ms": 0.00554,
-      "measured_score_total_ms": 5.54,
+      "measured_mean_latency_ms": 0.005344,
+      "measured_score_total_ms": 5.344,
+      "new_tokens_median": null,
       "per_event_latency_stats_ms": null,
       "pre_deadline_fraction": {
         "1000": {

@@ -57,10 +57,10 @@ def _baseline_detectors(seed: int) -> list[Detector]:
     The detector family spans the rule floor plus logistic regression, random
     forest, and gradient boosting. The pre-deadline metric is fed the *measured*
     per-event scoring latency of each detector (see
-    :func:`measure_score_latency_ms`); the ``inference_budget_ms`` argument is
-    retained only as descriptive metadata and no longer drives the deadline
-    metric. The ``gb_slow`` name is kept for continuity but the latency it is
-    scored on is whatever its scoring call actually takes.
+    :func:`measure_score_latency_ms`). The ``inference_budget_ms`` argument is
+    descriptive metadata for reports; it does not enter the deadline metric.
+    ``gb_slow`` is scored on whatever its own scoring call actually takes, like
+    every other detector.
     """
     return [
         RuleThresholdDetector(),
@@ -426,6 +426,10 @@ def experiment_e8(cfg: PipelineConfig) -> dict[str, Any]:
     n_sub = int(os.environ.get("PIXGUARD_E8_N", "1000"))
     target_fraud = int(os.environ.get("PIXGUARD_E8_FRAUD", "150"))
     model_id = os.environ.get("PIXGUARD_E8_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
+    # Forcing the device makes the hardware sensitivity of the metric
+    # measurable rather than argued: the same detector, model and prompt
+    # can then be reported on more than one machine.
+    device = os.environ.get("PIXGUARD_E8_DEVICE") or None
     sweep_env = os.environ.get("PIXGUARD_E8_DEADLINES", "200,1000,2000,5000")
     sweep = [int(x) for x in sweep_env.split(",")]
     logger.info("=== E8: slow LLM detector vs fast tabular, real latency ===")
@@ -476,6 +480,10 @@ def experiment_e8(cfg: PipelineConfig) -> dict[str, Any]:
             # to the threshold value, which counts as a flag, so a recall of
             # 1.000 next to a high count is the parser, not the model.
             "unparsed_completions": int(getattr(det, "unparsed_count", 0)),
+            "new_tokens_median": (
+                int(sorted(getattr(det, "new_tokens", []))[len(det.new_tokens) // 2])
+                if getattr(det, "new_tokens", None) else None
+            ),
             "batch": m,
             "pre_deadline_fraction": {str(k): v for k, v in pre.items()},
         }
@@ -485,10 +493,11 @@ def experiment_e8(cfg: PipelineConfig) -> dict[str, Any]:
     # step by step before concluding (the plausible way to make a small model
     # usable), which costs more generated tokens and therefore more latency.
     llm_terse = LLMDetector(
-        model_id=model_id, name="llm_terse", reasoning=False, max_new_tokens=8
+        model_id=model_id, name="llm_terse", reasoning=False, max_new_tokens=8,
+        device=device
     )
     llm_reason = LLMDetector(
-        model_id=model_id, name="llm_reasoning", reasoning=True,
+        model_id=model_id, name="llm_reasoning", reasoning=True, device=device,
         max_new_tokens=320,
     )
     rf = make_ml_detector("rf", cfg.generator.seed, inference_budget_ms=50,

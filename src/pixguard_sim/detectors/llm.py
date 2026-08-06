@@ -177,6 +177,8 @@ class LLMDetector(Detector):
         # caller report median/p95 rather than only the mean the harness times.
         self.per_event_latencies_ms: np.ndarray = np.empty(0)
         self.unparsed_count: int = 0
+        self.new_tokens: list[int] = []
+        self._last_new_tokens: int = 0
         # A token cap alone does not make a regime deliberate: asked to reason,
         # this model often emits a bare verdict and stops, so the "reasoning"
         # configuration collapses into the terse one and its latency with it.
@@ -225,6 +227,10 @@ class LLMDetector(Detector):
                 pad_token_id=self._tokenizer.eos_token_id,
             )
         gen = out[0][inputs["input_ids"].shape[1]:]
+        # What the budget actually buys is tokens, not milliseconds: recording
+        # the count lets a reader convert their own model's token needs into
+        # the same units without owning this machine.
+        self._last_new_tokens = int(gen.shape[0])
         return self._tokenizer.decode(gen, skip_special_tokens=True)
 
     def fit(self, frame: pd.DataFrame) -> LLMDetector:
@@ -242,6 +248,7 @@ class LLMDetector(Detector):
         self._ensure_loaded()
         scores = np.empty(len(frame), dtype="float64")
         unparsed = 0
+        ntok: list[int] = []
         lat = np.empty(len(frame), dtype="float64")
         import torch
 
@@ -253,6 +260,7 @@ class LLMDetector(Detector):
                 torch.cuda.synchronize()
             lat[i] = (time.perf_counter() - t0) * 1000.0
             scores[i] = _parse_score(answer)
+            ntok.append(self._last_new_tokens)
             if scores[i] == _UNPARSED_SCORE:
                 unparsed += 1
             if i < 3:
@@ -260,6 +268,7 @@ class LLMDetector(Detector):
                             i, answer, scores[i], lat[i])
         self.per_event_latencies_ms = lat
         self.unparsed_count = int(unparsed)
+        self.new_tokens = ntok
         if unparsed:
             logger.warning(
                 "%s: %d of %d completions were unparseable and fell back to "

@@ -1,0 +1,98 @@
+{
+  "authorization_budget_ms": 1500.0,
+  "detectors": [
+    {
+      "batch": {
+        "f1": 0.5454545454545454,
+        "f1_ci_hi": 0.6276150627615062,
+        "f1_ci_lo": 0.462310372617806,
+        "n_eval": 1000,
+        "n_fraud": 150,
+        "pr_auc": 0.8457479118720107,
+        "pr_auc_ci_hi": 0.9051038697074284,
+        "pr_auc_ci_lo": 0.7850060899149581,
+        "precision": 0.9661016949152542,
+        "precision_ci_hi": 0.9906540909083387,
+        "precision_ci_lo": 0.8845642924988925,
+        "recall": 0.38,
+        "recall_ci_hi": 0.45975558618387935,
+        "recall_ci_lo": 0.3062372724644591
+      },
+      "budget_share_p95": 3.3501180918001108,
+      "concurrency_check": {
+        "inflation": 0.9651430789280407,
+        "n": 8.0,
+        "parallel_median_ms": 2755.9310599999662,
+        "serial_median_ms": 2855.4637339998408
+      },
+      "detector": "deepseek-v4-flash",
+      "failed_requests": 0,
+      "model": "deepseek-v4-flash",
+      "new_tokens_median": 171,
+      "per_event_latency_stats_ms": {
+        "max_ms": 12923.082698999679,
+        "mean_ms": 3108.2532764689954,
+        "median_ms": 2758.731997000268,
+        "min_ms": 1742.5534730000436,
+        "p95_ms": 5025.177137700166
+      },
+      "pre_deadline_1500ms": {
+        "ci_hi": 0.0249702443680766,
+        "ci_lo": 1.734723475976807e-18,
+        "k": 0,
+        "n": 150,
+        "value": 0.0
+      },
+      "unparsed_completions": 2
+    },
+    {
+      "batch": {
+        "f1": 0.7671232876712328,
+        "f1_ci_hi": 0.819047619047619,
+        "f1_ci_lo": 0.706755736925958,
+        "n_eval": 1000,
+        "n_fraud": 150,
+        "pr_auc": 0.8493067744569462,
+        "pr_auc_ci_hi": 0.8944279330762925,
+        "pr_auc_ci_lo": 0.7951049786769715,
+        "precision": 0.7887323943661971,
+        "precision_ci_hi": 0.8478127411328686,
+        "precision_ci_lo": 0.7144416456722955,
+        "recall": 0.7466666666666667,
+        "recall_ci_hi": 0.8095087727091548,
+        "recall_ci_lo": 0.6715059067359275
+      },
+      "budget_share_p95": 6.8858422036335165,
+      "concurrency_check": {
+        "inflation": 1.0963187832689345,
+        "n": 8.0,
+        "parallel_median_ms": 5035.2990760002285,
+        "serial_median_ms": 4592.915083499975
+      },
+      "detector": "deepseek-v4-pro",
+      "failed_requests": 0,
+      "model": "deepseek-v4-pro",
+      "new_tokens_median": 284,
+      "per_event_latency_stats_ms": {
+        "max_ms": 22361.275590000332,
+        "mean_ms": 5703.851463931003,
+        "median_ms": 5083.542107500307,
+        "min_ms": 2169.277727000008,
+        "p95_ms": 10328.763305450275
+      },
+      "pre_deadline_1500ms": {
+        "ci_hi": 0.0249702443680766,
+        "ci_lo": 1.734723475976807e-18,
+        "k": 0,
+        "n": 150,
+        "value": 0.0
+      },
+      "unparsed_completions": 1
+    }
+  ],
+  "experiment": "E9",
+  "n_fraud_subsample": 150,
+  "n_subsample": 1000,
+  "operational_base_rate": 0.011918730315568456,
+  "question": "does a hosted reasoning model fit the authorization budget?"
+}
