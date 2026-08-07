@@ -1,10 +1,10 @@
 # PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors
 
-PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness** for fraud detectors targeting Pix, Brazil's instant-payment system. Because Pix settlement is irrevocable and the MED-2.0 regulation (mandatory since 2 February 2026) requires institutions to *block fraud before money settles*, accuracy alone is not enough: a detector must also decide **in time**. PixGuard-Sim scores any detector by the **pre-deadline flag fraction** — the share of frauds flagged within a configurable decision deadline, using each detector's **measured** per-event inference latency — alongside precision, recall, F1, and PR-AUC with 95% confidence intervals. It also ships reference definitions of two Pix-native scenarios absent from open prior work (multi-hop MED-2.0 refund tracing and coercion) and runs the same harness across three independently-authored generators through thin, checksum-pinned adapters. The headline finding: among sub-millisecond tabular detectors the deadline metric reduces to recall, but once a detector deliberates the metric separates accuracy from deployability. Two hosted reasoning models score PR-AUC **0.846** and **0.849** on 1000 events without ever seeing the data, and the stronger of them finds **112** of 150 frauds where a random forest trained on 16 193 labelled events finds **93** — yet at the 95th percentile they spend **5025 ms** and **10 329 ms**, so the share of frauds they both flag and decide inside the regulator's 1.5 s authorization budget is **0.000**. Ranking by accuracy alone selects the two detectors that cannot be deployed when the decision is due. All inputs are synthetic and ground-truth labeled; no number is a real-world fraud rate.
+PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness** for fraud detectors targeting Pix, Brazil's instant-payment system. Because Pix settlement is irrevocable and the MED-2.0 regulation (mandatory since 2 February 2026) requires institutions to *block fraud before money settles*, accuracy alone is not enough: a detector must also decide **in time**. PixGuard-Sim scores any detector by the **pre-deadline flag fraction**, the share of frauds flagged within a configurable decision deadline, using each detector's **measured** per-event inference latency, alongside precision, recall, F1, and PR-AUC with 95% confidence intervals. It also ships reference definitions of two Pix-native scenarios absent from open prior work (multi-hop MED-2.0 refund tracing and coercion) and runs the same harness across three independently-authored generators through thin, checksum-pinned adapters. The headline finding: among sub-millisecond tabular detectors the deadline metric reduces to recall, but once a detector deliberates the metric separates accuracy from deployability. Two hosted reasoning models score PR-AUC **0.846** and **0.849** on 1000 events without ever seeing the data, and the stronger of them finds **112** of 150 frauds where a random forest trained on 16 193 labelled events finds **93**, yet at the 95th percentile they spend **5025 ms** and **10 329 ms**, so the share of frauds they both flag and decide inside the regulator's 1.5 s authorization budget is **0.000**. Ranking by accuracy alone selects the two detectors that cannot be deployed when the decision is due. All inputs are synthetic and ground-truth labeled; no number is a real-world fraud rate.
 
 > **Paper:** *PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors* (SBSeg 2026).
 
-> **For SBSeg 2026 artifact reviewers (SeloD/F/S/R).** This README is the single, self-contained guide for the evaluation: follow it end to end and you reach all four seals. The other Markdown file in the repository (`DOCUMENTATION.md`) is complementary technical documentation with the full captured experiment output and is **not required** for the artifact review.
+> **For SBSeg 2026 artifact reviewers (SeloD/F/S/R).** [`DOCUMENTATION.md`](DOCUMENTATION.md) holds the full captured experiment output and is not needed for the review.
 
 ---
 
@@ -19,6 +19,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 | [Installation](#installation) | Clone, install `uv`, `uv sync` |
 | [Minimal Test](#minimal-test) | One command that exercises the real pipeline end to end |
 | [Experiments](#experiments) | Reproduction of the paper's claims, one designated main claim |
+| [Cleaning up](#cleaning-up) | One command removes what a run created |
 | [License](#license) | Licensing information |
 | [Optional commands](OPTIONAL_COMMANDS.md) | Commands outside the reviewer path: E4, E7, E8, E9, per-figure scripts |
 | [How to cite](#how-to-cite) | Paper reference and machine-readable `CITATION.cff` |
@@ -27,10 +28,10 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 
 ## Considered Seals
 
-- **SeloD — Available.** Public, open source (MIT), self-contained in this repository; the runnable claims need no external data.
-- **SeloF — Functional.** A single command (the [Minimal Test](#minimal-test)) runs the full pipeline — generate, fit detectors, latency-aware scoring, metrics with CIs — and writes a real `results/e1.json`.
-- **SeloS — Sustainable.** A `src/` layout with one module per concern (`generator.py`, `harness.py`, `metrics.py`, `detectors/`, `scenarios/`, `adapters.py`, `data_io.py`), frozen-dataclass configs, typed and docstringed code, 30 unit tests (`uv run --extra dev pytest`), and a lint-clean `ruff` configuration. Every dependency is pinned in [`pyproject.toml`](pyproject.toml) and [`uv.lock`](uv.lock).
-- **SeloR — Reproducible.** Fixed seeds and content-hashed inputs/outputs give byte-stable generation (experiment E4 checks frame-hash equality). The in-repo claims (E1, E2) reproduce deterministically; the cross-generator runs reproduce within bootstrap CIs from datasets pinned by checksum in `results/data_manifest.json`.
+- **Available (SeloD).** Public, open source (MIT), self-contained in this repository; the runnable claims need no external data.
+- **Functional (SeloF).** A single command (the [Minimal Test](#minimal-test)) runs the full pipeline (generate, fit detectors, latency-aware scoring, metrics with CIs) and writes a real `results/e1.json`.
+- **Sustainable (SeloS).** A `src/` layout with one module per concern (`generator.py`, `harness.py`, `metrics.py`, `detectors/`, `scenarios/`, `adapters.py`, `data_io.py`), frozen-dataclass configs, typed and docstringed code, 30 unit tests (`uv run --extra dev pytest`), and a lint-clean `ruff` configuration. Every dependency is pinned in [`pyproject.toml`](pyproject.toml) and [`uv.lock`](uv.lock).
+- **Reproducible (SeloR).** Fixed seeds and content-hashed inputs/outputs give byte-stable generation (experiment E4 checks frame-hash equality). The in-repo claims (E1, E2) reproduce deterministically; the cross-generator runs reproduce within bootstrap CIs from datasets pinned by checksum in `results/data_manifest.json`.
 
 ---
 
@@ -51,11 +52,11 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 
 All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [`uv.lock`](uv.lock); the reviewer installs everything with **`uv sync`** and runs every command with **`uv run`**. No manual `pip` step is needed.
 
-- **Core (installed by `uv sync`):** `numpy`, `pandas`, `scikit-learn`, `networkx` — sufficient for the [Minimal Test](#minimal-test) and the in-repo experiments (E1, E2, E4).
-- **Dev (`--extra dev`):** `pytest`, `ruff` — for the unit tests and the linter.
-- **Cross-generator (`--extra datasets`):** `datasets`, `pyarrow`, `xgboost` — only for the cross-generator claim (E3/E5/E6) that scores real third-party data.
+- **Core (installed by `uv sync`):** `numpy`, `pandas`, `scikit-learn`, `networkx`, sufficient for the [Minimal Test](#minimal-test) and the in-repo experiments (E1, E2, E4).
+- **Dev (`--extra dev`):** `pytest`, `ruff`, for the unit tests and the linter.
+- **Cross-generator (`--extra datasets`):** `datasets`, `pyarrow`, `xgboost`, only for the cross-generator claim (E3/E5/E6) that scores real third-party data.
 - **Optional baselines:** `--extra gnn` (`torch`) for the GraphSAGE baseline (E7); `--extra llm` (`torch`, `transformers`, `accelerate`) for the on-machine language-model study (E8). The hosted-model study (E9) needs neither, only network.
-- **Figures (`--extra figures`):** `matplotlib`, pinned to **3.11.x** — the minor that produced the committed figures. A looser range resolves to 3.10, which regenerates figures that do not match the paper.
+- **Figures (`--extra figures`):** `matplotlib`, pinned to **3.11.x**, the minor that produced the committed figures. A looser range resolves to 3.10, which regenerates figures that do not match the paper.
 
 **Third-party inputs are auto-fetched.** The two public generators are downloaded on demand by [`scripts/claim3.sh --run`](scripts/claim3.sh): Tide HI/LI from Zenodo (`10.5281/zenodo.18804069`, CC BY 4.0) and pix-fraud-br from Hugging Face (`andremessina/pix-fraud-br`, ODC-BY), both over HTTPS. Each file is verified against the provider-published checksum and pinned in `results/data_manifest.json`; a missing or mismatched file raises a typed error rather than fabricating a result. No dataset bytes are vendored in the repository.
 
@@ -65,7 +66,7 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [
 
 - The tool runs **entirely locally** over synthetic data; it runs no untrusted code and ships no container required for the review.
 - **Network** is used by the optional cross-generator claim, which fetches the two named public datasets over HTTPS (Zenodo, Hugging Face), and by the hosted-model experiment (E9, `scripts/run_hosted_llm.py`), which calls a reasoning model one transfer per request. E9 sends its requests wherever `PIXGUARD_LLM_ENDPOINT` points, defaulting to a local forwarding endpoint (`http://127.0.0.1:8080/v1/messages`) that holds the provider credential. An evaluator who prefers to call a provider directly sets that variable and `PIXGUARD_LLM_API_KEY`; the key is read from the environment, sent as a header, and never written to a results file or stored in this repository. The minimal test and the in-repo experiments need no network.
-- **No credentials** are stored in the repository. The external data root is never hardcoded — it is read from the `--data-dir` flag or the `PIXGUARD_DATA_DIR` environment variable, and downloads land in a scratch directory outside the repo (gitignored).
+- **No credentials** are stored in the repository. The external data root is never hardcoded: it is read from the `--data-dir` flag or the `PIXGUARD_DATA_DIR` environment variable, and downloads land in a scratch directory outside the repo (gitignored).
 
 ---
 
@@ -83,7 +84,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-`uv sync` is the only install step. On the reference machine it completes in **under a second** with a warm cache (the first-ever run downloads the wheels — a few tens of seconds depending on network). Every command below is run with `uv run`.
+`uv sync` is the only install step. On the reference machine it completes in **under a second** with a warm cache (the first-ever run downloads the wheels, a few tens of seconds depending on network). Every command below is run with `uv run`.
 
 ---
 
@@ -109,7 +110,7 @@ gb_slow           0.696       0.684       0.684
 
 The *fast* config uses a small stream, so these values move by a few points with the BLAS build and the scikit-learn version even under the fixed seed; what should reproduce exactly is the shape, four sub-millisecond detectors whose pre-deadline fraction equals their recall. The full-config numbers the paper reports are in `results/published/` and do reproduce byte for byte.
 
-This confirms the harness runs end to end and writes a real, inspectable `results/e1.json`. The deadline metric only *separates* detectors once one is genuinely slow — that is the LLM-latency study in [Experiments](#experiments) (Claim #1). (Run `uv run --extra dev pytest` for the 30 unit tests; ~9 s.)
+This confirms the harness runs end to end and writes a real, inspectable `results/e1.json`. The deadline metric only *separates* detectors once one is genuinely slow, which is the LLM-latency study in [Experiments](#experiments) (Claim #1). (Run `uv run --extra dev pytest` for the 30 unit tests; ~9 s.)
 
 ---
 
@@ -185,7 +186,7 @@ hosts: 21 s / 791 MB on a Ryzen 5 8600G and 12 s / 214 MB on a 32-core server.
 **Paper reference:** Section *Scenarios open data omits*, Table 3.
 
 **What this claim asserts.** A random forest trained only on legitimate traffic plus account
-takeover — the modeling scope of the open Pix generator — keeps its recall there and falls
+takeover, the modeling scope of the open Pix generator, keeps its recall there and falls
 away as the scenario moves further from what it saw: mule chains, then multi-hop MED-2.0
 refunds, then coercion, where the victim transacts from their own device and the transfer
 looks ordinary by construction.
