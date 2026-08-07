@@ -4,7 +4,10 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 
 > **Paper:** *PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors* (SBSeg 2026).
 
-> **For SBSeg 2026 artifact reviewers (SeloD/F/S/R).** [`DOCUMENTATION.md`](DOCUMENTATION.md) holds the full captured experiment output and is not needed for the review.
+> **For SBSeg 2026 artifact reviewers (SeloD/F/S/R): this README is the only file you need to
+> read.** The other Markdown files are complementary; [`DOCUMENTATION.md`](DOCUMENTATION.md)
+> holds the full captured experiment output and
+> [`OPTIONAL_COMMANDS.md`](OPTIONAL_COMMANDS.md) the commands outside the reviewer path.
 
 ---
 
