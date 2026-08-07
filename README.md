@@ -82,6 +82,7 @@ cd pixguard-sim
 
 # 2. Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"   # where the installer puts uv; the current shell needs telling
 
 # 3. Install the pinned environment
 uv sync
