@@ -303,6 +303,16 @@ seal; each costs a model download, a GPU, a credential, or a large fetch.
 
 ---
 
+## Cleaning up
+
+One command removes everything a run created, the environment, the live claim outputs and the fetched generators. It never touches anything tracked by git.
+
+```bash
+./cleanup.sh
+```
+
+Pass `--dry-run` to list what would go without removing it (about ~1.2 GB).
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
