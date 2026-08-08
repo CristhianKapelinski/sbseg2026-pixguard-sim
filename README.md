@@ -53,6 +53,17 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 
 ## Dependencies
 
+**Host tools:** `git` (to clone), `curl` (to fetch the uv installer) and `uv`. **No Docker, no compiler, no GPU driver.** Every claim script checks for `uv` before doing any work and prints the installer plus the PATH line the installer cannot apply to the shell that ran it.
+
+```bash
+sudo apt-get update && sudo apt-get install -y git curl   # Debian, Ubuntu
+sudo dnf install -y git curl                              # Fedora, RHEL
+sudo pacman -Sy --needed git curl                         # Arch
+sudo zypper install -y git curl                           # openSUSE
+curl -LsSf https://astral.sh/uv/install.sh | sh           # uv
+export PATH="$HOME/.local/bin:$PATH"                      # needed in THIS shell after installing uv
+```
+
 All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [`uv.lock`](uv.lock); the reviewer installs everything with **`uv sync`** and runs every command with **`uv run`**. No manual `pip` step is needed.
 
 - **Core (installed by `uv sync`):** `numpy`, `pandas`, `scikit-learn`, `networkx`, sufficient for the [Minimal Test](#minimal-test) and the in-repo experiments (E1, E2, E4).

@@ -7,6 +7,19 @@ _CLAIM_T0=$(date +%s)
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# uv drives every command below. Without this check the first `uv run` fails with the
+# shell's own "command not found", which names no installer -- and the usual cause is
+# not absence but PATH: the installer drops uv in ~/.local/bin, which the shell that
+# ran it does not pick up until it is re-entered.
+if ! command -v uv >/dev/null 2>&1; then
+    {
+        echo "missing required tool: uv"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        echo '  then, in THIS shell: export PATH="$HOME/.local/bin:$PATH"'
+    } >&2
+    exit 1
+fi
+
 # The live run writes here, never into results/published/. That directory is the
 # paper's committed campaign and is what every claim compares against; if a claim
 # wrote into it, the comparison would be the file against itself and would pass on
