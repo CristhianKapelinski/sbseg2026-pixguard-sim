@@ -348,9 +348,7 @@ If you use this artifact, please cite the paper:
 @inproceedings{kapelinski2026pixguardsim,
   title     = {{PixGuard-Sim}: A Deadline-Aware Testbed for Pix Fraud Detectors},
   author    = {Kapelinski, Cristhian and Kreutz, Diego},
-  booktitle = {Anais do XXVI Simp\'osio Brasileiro de Seguran\c{c}a da Informa\c{c}\~ao e de
-               Sistemas Computacionais (SBSeg 2026), Workshop de Trabalhos de Inicia\c{c}\~ao
-               Cient\'ifica e de Gradua\c{c}\~ao (WTICG)},
+  booktitle = {Anais do XXVI Simp\'osio Brasileiro de Seguran\c{c}a da Informa\c{c}\~ao e de Sistemas Computacionais (SBSeg 2026), Workshop de Trabalhos de Inicia\c{c}\~ao Cient\'ifica e de Gradua\c{c}\~ao (WTICG)},
   year      = {2026},
   publisher = {Sociedade Brasileira de Computa\c{c}\~ao (SBC)},
 }
