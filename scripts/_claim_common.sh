@@ -27,13 +27,35 @@ fi
 LIVE_DIR="results/claim_run"
 PUBLISHED_DIR="results/published"
 
-# Peak RSS of the whole claim, when /usr/bin/time is available. It is reported, never
-# gated: it belongs to this machine. Absent, the line is simply omitted.
+# Peak RSS of the whole claim. It is reported, never gated: it belongs to this
+# machine. Absent, the line is simply omitted.
+#
+# "%M" and "-o" are GNU time's spelling. The /usr/bin/time that ships with macOS
+# and the BSDs is a different program that rejects -f outright and writes its own
+# format to stderr, so the presence of the path says nothing about the flags: they
+# are probed once, against a no-op, and the result decides. gtime is GNU time under
+# the name Homebrew installs it as. If neither answers the probe, the claim still
+# runs; only the memory line goes away.
+_CLAIM_TIME_BIN=""
+for _claim_time_candidate in /usr/bin/time gtime; do
+    if command -v "$_claim_time_candidate" >/dev/null 2>&1 &&
+        "$_claim_time_candidate" -f "%M" -o /dev/null true >/dev/null 2>&1; then
+        _CLAIM_TIME_BIN="$_claim_time_candidate"
+        break
+    fi
+done
+unset _claim_time_candidate
+
 _run_measured() {
     local peak_file="$LIVE_DIR/.peak"
-    if command -v /usr/bin/time >/dev/null 2>&1; then
-        /usr/bin/time -f "%M" -o "$peak_file" "$@"
+    if [ -n "$_CLAIM_TIME_BIN" ]; then
+        "$_CLAIM_TIME_BIN" -f "%M" -o "$peak_file" "$@"
         PIXGUARD_CLAIM_PEAK_KB=$(cat "$peak_file" 2>/dev/null || true)
+        # show_claim.py prints this as a number; anything else is dropped rather
+        # than passed on to fail there.
+        case "$PIXGUARD_CLAIM_PEAK_KB" in
+            "" | *[!0-9]*) PIXGUARD_CLAIM_PEAK_KB="" ;;
+        esac
         rm -f -- "$peak_file"
     else
         "$@"

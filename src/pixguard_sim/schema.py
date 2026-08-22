@@ -98,7 +98,20 @@ def events_to_frame(events: list[PixEvent]) -> pd.DataFrame:
 
 
 def _enforce_dtypes(frame: pd.DataFrame) -> pd.DataFrame:
-    """Coerce columns to stable dtypes for deterministic serialization."""
+    """Coerce columns to stable dtypes for deterministic serialization.
+
+    The coerced columns are handed to :meth:`~pandas.DataFrame.assign` in one
+    call instead of being written back one at a time. Writing them back column
+    by column mutates the frame the caller passed in, which is what pandas
+    warns about once copy-on-write is the default; ``assign`` returns a new
+    frame and leaves the argument alone.
+
+    ``frame.loc[:, col] = frame[col].astype("int64")``, the other way to quiet
+    that warning, is *not* usable here: ``.loc`` sets values into the existing
+    column and keeps its dtype, so a float or object column would survive the
+    coercion unchanged and the serialized CSV would stop being byte-stable,
+    which is the one thing this function exists to guarantee.
+    """
     int_cols = [
         "is_fraud",
         "payer_account",
@@ -112,10 +125,9 @@ def _enforce_dtypes(frame: pd.DataFrame) -> pd.DataFrame:
         "is_remote_session",
         "coercion_flag",
     ]
-    for col in int_cols:
-        frame[col] = frame[col].astype("int64")
-    frame["amount_brl"] = frame["amount_brl"].astype("float64").round(2)
-    return frame
+    coerced = {col: frame[col].astype("int64") for col in int_cols}
+    coerced["amount_brl"] = frame["amount_brl"].astype("float64").round(2)
+    return frame.assign(**coerced)
 
 
 # Numeric feature columns exposed to detectors. The harness never leaks the

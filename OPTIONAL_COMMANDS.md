@@ -97,7 +97,9 @@ uv run python scripts/make_macros.py results/published
 ## Fetching the third-party generators on their own
 
 `./scripts/claim3.sh --run` does this as part of the claim. Run it separately only to stage the
-download ahead of time.
+download ahead of time. If the files are already somewhere on this machine, do not download
+them again: point `PIXGUARD_DATA_CACHE` at that directory and `claim3.sh --run` links them in,
+checksums included (see the claim's own section in the [README](README.md#claim-3-the-harness-holds-up-on-two-independently-authored-generators)).
 
 ```bash
 uv run --extra datasets python scripts/fetch_pix_fraud_br.py data/pix_fraud_br.parquet

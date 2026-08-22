@@ -255,8 +255,12 @@ def adapt_pix_fraud_br(
     ]
     frame = events_to_frame(events)
     # Carry the engineered numeric features so the prior-art baselines see them.
-    for col in PIX_FRAUD_BR_FEATURES:
-        frame[col] = df[col].astype("float64").to_numpy()
+    # One assign() rather than a column-at-a-time write, for the same reason as
+    # in schema._enforce_dtypes: no in-place mutation, and no repeated inserts
+    # into a frame that already has every schema column.
+    frame = frame.assign(
+        **{col: df[col].astype("float64").to_numpy() for col in PIX_FRAUD_BR_FEATURES}
+    )
     logger.info(
         "adapted pix-fraud-br frame: events=%d fraud=%d rate=%.5f",
         len(frame),

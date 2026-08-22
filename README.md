@@ -21,6 +21,7 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 | [Security Concerns](#security-concerns) | Risks and mitigations for evaluators |
 | [Installation](#installation) | Clone, install `uv`, `uv sync` |
 | [Minimal Test](#minimal-test) | One command that exercises the real pipeline end to end |
+| [Unit tests](#unit-tests) | The test suite, run on its own and never inside the minimal test |
 | [Experiments](#experiments) | Reproduction of the paper's claims, one designated main claim |
 | [Cleaning up](#cleaning-up) | One command removes what a run created |
 | [License](#license) | Licensing information |
@@ -43,11 +44,25 @@ PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness**
 | | |
 |---|---|
 | **OS** | Linux (developed on Ubuntu 24.04). macOS/Windows expected to work for the in-repo experiments. |
-| **Python** | 3.11 or newer (validated on 3.13 via `uv`). The floor is set by matplotlib 3.11, the version that produced the figures in the paper; below it the figure scripts still run but lay the data out slightly differently. |
+| **Python** | **3.11, 3.12 and 3.13 are the validated versions**; `uv sync` picks 3.13. The floor is set by matplotlib 3.11, the version that produced the figures in the paper; below it the figure scripts still run but lay the data out slightly differently. See [Python versions](#python-versions) for the ceiling. |
 | **RAM** | < 1 GB for the in-repo experiments (E1/E2/E4); ~6 GB peak for the cross-generator runs (E3/E5/E6) on a 400k-row subsample. |
 | **Disk** | `.venv` after `uv sync`: ~1.1 GB. Optional third-party datasets (cross-generator claim only): ~1.8 GB (Tide) + ~130 MB (pix-fraud-br), fetched outside the repo. |
 | **GPU** | **Not needed.** The whole tabular pipeline runs on CPU. A CUDA GPU only accelerates the optional GraphSAGE (E7) and LLM-latency (E8) baselines, both of which fall back to CPU. |
 | **Reference machine** | 6-core/12-thread x86-64 CPU · 32 GB RAM · single CUDA GPU · Ubuntu 24.04 · Python 3.13. All times in this README were measured here. |
+
+#### Python versions
+
+**Validated: 3.11, 3.12 and 3.13.** The test suite passes on all three (`30 passed`
+on each); the reviewer path and every timing in this README were measured on 3.13,
+which is what `uv sync` resolves to on its own. `uv sync --python 3.11` or
+`--python 3.12` pins one of the other two.
+
+**3.14 is outside that set.** On Python 3.14 on aarch64, pandas segfaults inside
+`date_range` while the unit tests build their fixture frames, and a segfault takes
+the interpreter down rather than failing a test. The call is in the test fixtures
+and the crash is in the dependency — nothing under `src/` calls `date_range` — but
+until that is fixed upstream 3.14 is unvalidated here, so use one of the three
+versions above, which is what you get by default.
 
 ---
 
@@ -72,7 +87,7 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [
 - **Optional baselines:** `--extra gnn` (`torch`) for the GraphSAGE baseline (E7); `--extra llm` (`torch`, `transformers`, `accelerate`) for the on-machine language-model study (E8). The hosted-model study (E9) needs neither, only network.
 - **Figures (`--extra figures`):** `matplotlib`, pinned to **3.11.x**, the minor that produced the committed figures. A looser range resolves to 3.10, which regenerates figures that do not match the paper.
 
-**Third-party inputs are auto-fetched.** The two public generators are downloaded on demand by [`scripts/claim3.sh --run`](scripts/claim3.sh): Tide HI/LI from Zenodo (`10.5281/zenodo.18804069`, CC BY 4.0) and pix-fraud-br from Hugging Face (`andremessina/pix-fraud-br`, ODC-BY), both over HTTPS. Each file is verified against the provider-published checksum and pinned in `results/data_manifest.json`; a missing or mismatched file raises a typed error rather than fabricating a result. No dataset bytes are vendored in the repository.
+**Third-party inputs are auto-fetched.** The two public generators are downloaded on demand by [`scripts/claim3.sh --run`](scripts/claim3.sh): Tide HI/LI from Zenodo (`10.5281/zenodo.18804069`, CC BY 4.0) and pix-fraud-br from Hugging Face (`andremessina/pix-fraud-br`, ODC-BY), both over HTTPS. Each file is verified against the provider-published checksum and pinned in `results/data_manifest.json`; a missing or mismatched file raises a typed error rather than fabricating a result. No dataset bytes are vendored in the repository. **Already have these files?** Set `PIXGUARD_DATA_CACHE` to where they live and nothing is downloaded again; see [Claim #3](#claim-3-the-harness-holds-up-on-two-independently-authored-generators).
 
 ---
 
@@ -125,7 +140,35 @@ gb_slow           0.696       0.684       0.684
 
 The *fast* config uses a small stream, so these values move by a few points with the BLAS build and the scikit-learn version even under the fixed seed; what should reproduce exactly is the shape, four sub-millisecond detectors whose pre-deadline fraction equals their recall. The full-config numbers the paper reports are in `results/published/` and do reproduce byte for byte.
 
-This confirms the harness runs end to end and writes a real, inspectable `results/e1.json`. The deadline metric only *separates* detectors once one is genuinely slow, which is the LLM-latency study in [Experiments](#experiments) (Claim #1). (Run `uv run --extra dev pytest` for the 30 unit tests; ~9 s.)
+This confirms the harness runs end to end and writes a real, inspectable `results/e1.json`. The deadline metric only *separates* detectors once one is genuinely slow, which is the LLM-latency study in [Experiments](#experiments) (Claim #1).
+
+**The minimal test does not run the unit tests.** It exercises the pipeline and
+nothing else, so its verdict is about the artifact rather than about your
+toolchain. The tests are the next section, one separate command.
+
+---
+
+## Unit tests
+
+The suite is separate from the minimal test on purpose. The tests check the code —
+metrics, adapters, the no-label-leakage invariant — while the minimal test checks
+that the pipeline runs; folding them together meant that a test failing for an
+environment-specific reason read as the artifact failing, which is exactly the
+wrong signal to hand a reviewer.
+
+```bash
+uv run --extra dev pytest
+```
+
+- **Expected time:** ~9 s on the reference machine. No network, no GPU, no external data.
+- **Expected output:** `30 passed`. A `DeprecationWarning` from SciPy about L-BFGS-B
+  options, raised inside scikit-learn, is expected and harmless.
+- **Lint, if you want it too:** `uv run --extra dev ruff check src tests scripts`,
+  which prints `All checks passed!`.
+
+If the tests fail but `./scripts/minimal_test.sh` and the claim scripts pass, the
+artifact reproduced: check your Python version against
+[Python versions](#python-versions) before reading anything else into it.
 
 ---
 
@@ -254,6 +297,23 @@ generator and tested on another.
   recomputes E3/E5/E6. Without it the script reads
   [`results/published/`](results/published) and **says so in its output** rather than implying
   it measured anything.
+- **Local cache, to avoid downloading 2 GB twice:** if you already have these files — from an
+  earlier run, a shared scratch disk, a colleague's copy — set `PIXGUARD_DATA_CACHE` to the
+  directory holding them and `--run` fetches nothing:
+
+  ```bash
+  PIXGUARD_DATA_CACHE=/mnt/scratch/pixguard-inputs ./scripts/claim3.sh --run
+  ```
+
+  Expected layout is the data directory's own (`$PIXGUARD_DATA_CACHE/tide/generated_*.csv`
+  and `$PIXGUARD_DATA_CACHE/pix_fraud_br.parquet`); a flat directory with the same file names
+  also works. The cache is read-only to the script: cached files are symlinked into
+  `$PIXGUARD_DATA_DIR`, so [`./cleanup.sh`](#cleaning-up) removes the links and never your
+  copies. Anything staged from the cache still goes through the same checksum verification as
+  a fresh download, so a truncated or stale cached file fails the manifest step instead of
+  quietly producing a wrong number. Whatever the cache does not hold is downloaded as usual.
+  **This is a cache, not a mirror:** the artifact publishes no copy of either dataset, and the
+  only sources are the ones named above.
 - **Expected time:** instant to read. With `--run`, **9 to 12 min on a 32-core host and 37 min on a
   6-core/12-thread Ryzen 5 8600G**, once the data is local; the first run also downloads
   ~1.8 GB of Tide and ~130 MB of pix-fraud-br.
