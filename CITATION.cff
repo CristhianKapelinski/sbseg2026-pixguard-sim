@@ -9,7 +9,7 @@ abstract: >-
   payment under coercion.
 type: software
 license: MIT
-repository-code: "https://gitlab.com/cristhianavila.aluno/sbseg2026-pixguard-sim"
+repository-code: "https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim"
 keywords:
   - pix
   - instant-payments

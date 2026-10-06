@@ -103,7 +103,7 @@ All packages are pinned in [`pyproject.toml`](pyproject.toml) with a committed [
 
 ```bash
 # 1. Clone the repository
-git clone https://gitlab.com/cristhianavila.aluno/sbseg2026-pixguard-sim.git pixguard-sim
+git clone https://github.com/CristhianKapelinski/sbseg2026-pixguard-sim.git pixguard-sim
 cd pixguard-sim
 
 # 2. Install uv (if not already installed)
