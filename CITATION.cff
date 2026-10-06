@@ -30,9 +30,9 @@ preferred-citation:
   type: conference-paper
   title: "PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors"
   year: 2026
-  collection-title: "Anais do XXVI Simpósio Brasileiro de Segurança da Informação e de Sistemas Computacionais (SBSeg 2026)"
+  collection-title: "Anais Estendidos do XXVI Simpósio Brasileiro de Cibersegurança (SBSeg 2026)"
   conference:
-    name: "Simpósio Brasileiro de Segurança da Informação e de Sistemas Computacionais (SBSeg 2026), Workshop de Trabalhos de Iniciação Científica e de Graduação (WTICG)"
+    name: "Simpósio Brasileiro de Cibersegurança (SBSeg 2026), Workshop de Trabalhos de Iniciação Científica e de Graduação (WTICG)"
   publisher:
     name: "Sociedade Brasileira de Computação (SBC)"
   authors:

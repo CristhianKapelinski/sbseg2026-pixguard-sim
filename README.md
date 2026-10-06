@@ -1,5 +1,16 @@
 # PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors
 
+<p align="center">
+  <a href="https://doc-artefatos.github.io/sbseg2026/results.html">
+    <img src="docs/assets/seals/SBRC25_SF_SeloD.png" alt="Artefatos Disponíveis / Available (SeloD)" width="110">
+    <img src="docs/assets/seals/SBRC25_SF_SeloF.png" alt="Artefatos Funcionais / Functional (SeloF)" width="110">
+    <img src="docs/assets/seals/SBRC25_SF_SeloS.png" alt="Artefatos Sustentáveis / Sustainable (SeloS)" width="110">
+    <img src="docs/assets/seals/SBRC25_SF_SeloR.png" alt="Experimentos Reprodutíveis / Reproducible (SeloR)" width="110">
+  </a>
+</p>
+
+<p align="center"><sub>Official SBSeg 2026 artifact-evaluation seals awarded to this artifact (WTICG): Available, Functional, Sustainable and Reproducible. <a href="https://doc-artefatos.github.io/sbseg2026/results.html">Official results</a>. Seal artwork by the SBSeg Artifact Evaluation Committee.</sub></p>
+
 PixGuard-Sim is an open, detector- and generator-agnostic **evaluation harness** for fraud detectors targeting Pix, Brazil's instant-payment system. Because Pix settlement is irrevocable and the MED-2.0 regulation (mandatory since 2 February 2026) requires institutions to *block fraud before money settles*, accuracy alone is not enough: a detector must also decide **in time**. PixGuard-Sim scores any detector by the **pre-deadline flag fraction**, the share of frauds flagged within a configurable decision deadline, using each detector's **measured** per-event inference latency, alongside precision, recall, F1, and PR-AUC with 95% confidence intervals. It also ships reference definitions of two Pix-native scenarios absent from open prior work (multi-hop MED-2.0 refund tracing and coercion) and runs the same harness across three independently-authored generators through thin, checksum-pinned adapters. The headline finding: among sub-millisecond tabular detectors the deadline metric reduces to recall, but once a detector deliberates the metric separates accuracy from deployability. Two hosted reasoning models score PR-AUC **0.846** and **0.849** on 1000 events without ever seeing the data, and the stronger of them finds **112** of 150 frauds where a random forest trained on 16 193 labelled events finds **93**, yet at the 95th percentile they spend **5025 ms** and **10 329 ms**, so the share of frauds they both flag and decide inside the regulator's 1.5 s authorization budget is **0.000**. Ranking by accuracy alone selects the two detectors that cannot be deployed when the decision is due. All inputs are synthetic and ground-truth labeled; no number is a real-world fraud rate.
 
 > **Paper:** *PixGuard-Sim: A Deadline-Aware Testbed for Pix Fraud Detectors* (SBSeg 2026).
@@ -408,7 +419,7 @@ If you use this artifact, please cite the paper:
 @inproceedings{kapelinski2026pixguardsim,
   title     = {{PixGuard-Sim}: A Deadline-Aware Testbed for Pix Fraud Detectors},
   author    = {Kapelinski, Cristhian and Kreutz, Diego},
-  booktitle = {Anais do XXVI Simp\'osio Brasileiro de Seguran\c{c}a da Informa\c{c}\~ao e de Sistemas Computacionais (SBSeg 2026), Workshop de Trabalhos de Inicia\c{c}\~ao Cient\'ifica e de Gradua\c{c}\~ao (WTICG)},
+  booktitle = {Anais Estendidos do XXVI Simp\'osio Brasileiro de Ciberseguran\c{c}a (SBSeg 2026), Workshop de Trabalhos de Inicia\c{c}\~ao Cient\'ifica e de Gradua\c{c}\~ao (WTICG)},
   year      = {2026},
   publisher = {Sociedade Brasileira de Computa\c{c}\~ao (SBC)},
 }
